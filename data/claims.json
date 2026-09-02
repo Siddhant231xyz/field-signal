@@ -257,7 +257,7 @@
       "stated_by": "priya", "stated_at": "2026-09-11T16:06:00", "kind": "assertion",
       "subject": "access_panel_location", "predicate": "drawing_shows", "value": "centred_between_lights",
       "cites_basis": "S-ABS-RCP",
-      "support": "reflected ceiling plan shows it centred between\nlights."
+      "support": "reflected ceiling plan shows it centred between lights."
     },
     {
       "id": "CL-S02-06", "source": "S-02", "locator": "Sun 13 Sep 10:14",
@@ -269,7 +269,7 @@
       "id": "CL-S02-07", "source": "S-02", "locator": "Sun 13 Sep 10:14",
       "stated_by": "ben", "stated_at": "2026-09-13T10:14:00", "kind": "estimate",
       "subject": "duct_offset_west", "predicate": "distance", "value": "about 6 in",
-      "support": "About 6 in from\nold spot."
+      "support": "About 6 in from old spot."
     },
     {
       "id": "CL-S02-08", "source": "S-02", "locator": "Sun 13 Sep 10:14",
@@ -330,7 +330,7 @@
       "id": "CL-S02-17", "source": "S-02", "locator": "Mon 14 Sep 12:22",
       "stated_by": "luis", "stated_at": "2026-09-14T12:22:00", "kind": "assertion",
       "subject": "field_direction", "predicate": "standing_direction", "value": "no_final_connection",
-      "support": "Current direction remains no final duct connection and no board in affected\nbay."
+      "support": "Current direction remains no final duct connection and no board in affected bay."
     },
 
     {

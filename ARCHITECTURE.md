@@ -14,6 +14,10 @@ rules.py           condition rules — pure functions, no I/O
 graph.py           queues, topological derivation, taint propagation
    │
 diff.py            conclusions(a) vs conclusions(b)
+   │
+render.py          Rich rendering — no logic
+__main__.py        REPL, command dispatch, live reload
+verify.py          claim support text vs the real documents (a check, not a layer)
 ```
 
 `rules.py` and `graph.py` import nothing from a renderer and perform no I/O.
@@ -107,6 +111,38 @@ note)`. Kinds: `condition_status`, `condition_basis`, `condition_added`,
 changing it — the case that is easy to miss and easy to fake. Nothing that did
 not move is reported.
 
+### `field_signal/render.py`
+
+Rich rendering only — every value is computed upstream. Status is never
+carried by colour alone: each state has a glyph *and* a word (`✓ met`,
+`✓* met — premise contested`, `? unknown`, `✗ unmet`, `⚠ assumed`), so the
+brief survives a monochrome terminal. `$2,850` never appears without its
+exclusions because the exposure text is one string, built once, in `rules.py`.
+
+Views: `brief`, `why`, `evidence`, `conflicts`, `unknowns`, `exposure`,
+`people`, `sources`, `graph_view`, `diff_view`, `verify_view`.
+
+### `field_signal/__main__.py`
+
+`App` holds the ledger, the list of loaded fixture paths, and one
+`Conclusions` per revision, so earlier revisions stay computable. `reload()`
+rebuilds from disk and **keeps the last good graph** if validation fails, so a
+malformed edit never leaves the tool broken. `/watch` polls `data/*.json`
+mtimes on a daemon thread and, on change, reloads, prints the diff, and
+re-renders the current view.
+
+Non-interactive form for scripting and screenshots:
+`python -m field_signal "/brief" "/conflicts"`.
+
+### `field_signal/verify.py`
+
+`verify(ledger)` greps each claim's verbatim `support` against the real
+document — PDFs via `pypdf`, the workbook via stdlib `zipfile` (rows joined
+with `" | "`, matching how schedule claims are transcribed), JSON fixtures as
+raw text. Whitespace is normalised because it is a PDF layout artefact;
+wording is not. Image claims are reported as `skipped — image` rather than
+silently passed. All 75 claims currently resolve to `found`.
+
 ## Data
 
 - `data/people.json` — 7 people, capability sets, each cited to S-00.
@@ -157,5 +193,20 @@ reported as if it did); the fixture opens a question that did not previously
 exist; supersession names both claims and keeps the loser readable; the
 recommendation stays `HOLD` for a different set of reasons; new evidence on an
 unchanged conclusion is still surfaced.
+
+`tests/test_verify.py` — every transcribed claim is found in its source
+document; image claims are skipped rather than silently passed; a drifted
+support string *is* reported (the check has to be able to fail); whitespace is
+normalised but wording is not.
+
+`tests/test_cli.py` — reads rendered output, because that is what the user
+sees. Borders are stripped and whitespace collapsed so the assertions test
+content rather than column widths. Covers: the brief leads with the
+recommendation and its blockers; status is never carried by colour alone; the
+quote never appears without its exclusions; all three offsets appear and no
+fourth number is invented; unknowns never render as "no"; `/why` separates
+claims that gate from claims that may not; `/sources` flags documents cited
+but not supplied; `/load` creates a revision and prints what moved; earlier
+revisions stay computable; a malformed edit keeps the last good graph.
 
 Run: `.venv/bin/python -m pytest tests -q`
