@@ -1,4 +1,5 @@
 <title>HC-17 Evidence Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
   .root {
     color-scheme: light;
@@ -50,7 +51,7 @@
   .root {
     background: var(--plane);
     color: var(--ink);
-    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 14px/1.55 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
     max-width: 1120px;
     margin: 0 auto;
     padding: 40px 24px 72px;
@@ -59,6 +60,7 @@
   h2 { font-size: 17px; letter-spacing: -0.01em; margin: 0 0 4px; }
   .sub { color: var(--ink-2); margin: 0 0 4px; }
   .note { color: var(--muted); font-size: 12.5px; margin: 0; }
+  .mono, .cite, .role, .tl time, .tl .ev em { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   section { margin-top: 44px; }
   .panel {
     background: var(--surface-1);
@@ -76,9 +78,9 @@
 
   svg { display: block; min-width: 900px; }
   .box { fill: var(--surface-1); stroke: var(--axis); stroke-width: 1.5; }
-  .lbl { fill: var(--ink); font: 600 13px system-ui, sans-serif; }
-  .cite { fill: var(--muted); font: 11px system-ui, sans-serif; }
-  .sml { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .lbl { fill: var(--ink); font: 600 13px "IBM Plex Sans", system-ui, sans-serif; }
+  .cite { fill: var(--muted); font: 11px "IBM Plex Mono", ui-monospace, monospace; }
+  .sml { fill: var(--ink-2); font: 12px "IBM Plex Sans", system-ui, sans-serif; }
   .edge { stroke: var(--axis); stroke-width: 2; fill: none; }
   .edge-dead { stroke: var(--critical); stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
 
@@ -88,7 +90,7 @@
   td.c { text-align: center; white-space: nowrap; }
   tbody tr:last-child td { border-bottom: none; }
   .who { font-weight: 600; }
-  .role { color: var(--muted); font-weight: 400; }
+  .role { color: var(--muted); font-weight: 400; font-size: 11.5px; }
 
   .yes { color: var(--good); font-weight: 700; }
   .no  { color: var(--critical); font-weight: 700; }
@@ -110,7 +112,7 @@
   .tl { position: relative; padding-left: 0; }
   .tl ol { list-style: none; margin: 0; padding: 0; }
   .tl li { display: grid; grid-template-columns: 108px 18px 1fr; gap: 12px; align-items: start; padding-bottom: 16px; }
-  .tl time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+  .tl time { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; padding-top: 1px; }
   .mark { position: relative; }
   .mark::before { content: ""; position: absolute; left: 5px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--axis); }
   .mark::after { content: ""; position: absolute; left: 8.5px; top: 13px; bottom: -16px; width: 1.5px; background: var(--rule); }
@@ -118,7 +120,7 @@
   .tl li.act .mark::before { background: var(--critical); }
   .tl li.stop .mark::before { background: var(--serious); width: 12px; height: 12px; left: 3px; }
   .tl .ev { font-size: 13px; }
-  .tl .ev em { font-style: normal; color: var(--muted); font-size: 11.5px; display: block; }
+  .tl .ev em { font-style: normal; color: var(--muted); font-size: 11px; display: block; margin-top: 2px; }
   .tl li.stop .ev strong { color: var(--serious); }
 </style>
 
@@ -381,7 +383,7 @@
       <li><time>Fri 11, 16:06</time><span class="mark"></span><span class="ev">Priya: will review Monday — asks for the proposed access-panel location.<em>S-02</em></span></li>
       <li class="act"><time>Sun 13, 10:14</time><span class="mark"></span><span class="ev"><strong>Ben moves the branch west.</strong> No authorisation exists. Left loose and reversible.<em>S-02 · this is the act everything else is now reacting to</em></span></li>
       <li><time>Sun 13, 10:31</time><span class="mark"></span><span class="ev">Luis: leave it open, photograph it, do not cover. Maya needs the quote.<em>S-02</em></span></li>
-      <li><time>Sat 13</time><span class="mark"></span><span class="ev">Quote CA-118 issued — $2,850, unsigned, “PRICING SUBMITTED — NOT AUTHORISED”.<em>S-04</em></span></li>
+      <li><time>Sun 13</time><span class="mark"></span><span class="ev">Quote CA-118 issued — $2,850, unsigned, “PRICING SUBMITTED — NOT AUTHORISED”.<em>S-04</em></span></li>
       <li><time>Mon 14, 07:12</time><span class="mark"></span><span class="ev">Ben resends the quote: “need direction today to keep crew Tuesday”.<em>S-02</em></span></li>
       <li><time>Mon 14, 07:26</time><span class="mark"></span><span class="ev">Maya: received — need architect and fire-protection review; keep it reversible.<em>S-02</em></span></li>
       <li><time>Mon 14, 07:42</time><span class="mark"></span><span class="ev">P-01 photographed by Luis — north counter, before the huddle.<em>P-REG</em></span></li>

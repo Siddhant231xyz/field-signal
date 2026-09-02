@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0",
+  "release_id": "field-signal-packet-v2-2026-09-01",
+  "project_id": "HC-17",
+  "canonical_source_rule": "Each source_id has exactly one canonical_file. Do not ingest administrative files or the photo register as duplicate project findings.",
+  "files": [
+    {
+      "source_id": "ADMIN-README",
+      "canonical_file": "00_READ_ME.pdf",
+      "source_type": "administrative",
+      "logical_timestamp": "packet boundaries and canonical-source guidance",
+      "locator_model": "page/section",
+      "bytes": 44956,
+      "sha256": "65b2b81cab3ffad371772a0e3cdfd03b0287abf9ef02e4e0b834cff3e72b7c64",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "ADMIN-CLARIFICATIONS",
+      "canonical_file": "00_CLARIFICATIONS_LOG.md",
+      "source_type": "administrative",
+      "logical_timestamp": "shared clarification log",
+      "locator_model": "heading/date",
+      "bytes": 454,
+      "sha256": "8c630bf33c208707f3c84cf73e63351954ef4acbe8518801d3470c2692c41130",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "S-00",
+      "canonical_file": "01_Project_Primer.pdf",
+      "source_type": "project primer",
+      "logical_timestamp": "14 September 2026",
+      "locator_model": "page/section",
+      "bytes": 45402,
+      "sha256": "cfa68353e2db99ce5d8d50539c0ecec7426a64ce412230fda3f8e5df08589a7a",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "S-01",
+      "canonical_file": "02_Site_Huddle_Transcript.pdf",
+      "source_type": "rough transcript",
+      "logical_timestamp": "14 September 2026 08:05–08:12",
+      "locator_model": "timestamp",
+      "bytes": 46777,
+      "sha256": "361190d2d5954cbf61170dd89cff630e454635d87251f467a597f65272165af9",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "S-02",
+      "canonical_file": "03_Project_Message_Thread.pdf",
+      "source_type": "message export",
+      "logical_timestamp": "11–14 September 2026",
+      "locator_model": "message timestamp",
+      "bytes": 44598,
+      "sha256": "6384293f8fdc694cc31efa22f1e0f7eed23026dea66e1190ed91a1134852700a",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "S-03",
+      "canonical_file": "04_Three-Week_Schedule_Excerpt.xlsx",
+      "source_type": "schedule workbook",
+      "logical_timestamp": "14 September 2026 07:00",
+      "locator_model": "activity ID / workbook row",
+      "bytes": 6274,
+      "sha256": "7c7a1ea81aacd6efc25f97ac2fffaab1008d7212b164679ac7ccac4c232dd6c9",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "S-04",
+      "canonical_file": "05_HVAC_Change_Quote_CA-118.pdf",
+      "source_type": "subcontractor quotation",
+      "logical_timestamp": "13 September 2026",
+      "locator_model": "section / line item",
+      "bytes": 44638,
+      "sha256": "e8746be97cd7cc4b6afff56642e044a6acf24f6889f2f6a6a8a98ca00ed15eaa",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "P-REG",
+      "canonical_file": "06_Site_Photos/06_Photo_Register.pdf",
+      "source_type": "photo register",
+      "logical_timestamp": "14 September 2026",
+      "locator_model": "register row",
+      "bytes": 12452716,
+      "sha256": "82e45a806568c24aa7e7c9903743d80039e2f07c79710bc8db706387910abf47",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "P-01",
+      "canonical_file": "06_Site_Photos/P-01_North-Counter_Wide_2026-09-14_0742.png",
+      "source_type": "site photograph",
+      "logical_timestamp": "14 September 2026 07:42",
+      "locator_model": "image ID + precise region/crop",
+      "bytes": 2185291,
+      "sha256": "999d138e787b51ed67cec243ef64e49f9107a2df579db95737e3a0076f04cd85",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "P-02",
+      "canonical_file": "06_Site_Photos/P-02_North-Soffit_Close_2026-09-14_1018.png",
+      "source_type": "site photograph",
+      "logical_timestamp": "14 September 2026 10:18",
+      "locator_model": "image ID + precise region/crop",
+      "bytes": 2217260,
+      "sha256": "1e4c2ae6cd1720dca6270db47b41b620884d5bf4979014a67887b85a9b07d48d",
+      "candidate_visible": true
+    },
+    {
+      "source_id": "P-03",
+      "canonical_file": "06_Site_Photos/P-03_Dining-Area_Wide_2026-09-14_1436.png",
+      "source_type": "site photograph",
+      "logical_timestamp": "14 September 2026 14:36",
+      "locator_model": "image ID + precise region/crop",
+      "bytes": 2074119,
+      "sha256": "5ec54aba88692ca51959bfdd218374ec5066688a68753046867f8354c4fa07d7",
+      "candidate_visible": true
+    }
+  ]
+}

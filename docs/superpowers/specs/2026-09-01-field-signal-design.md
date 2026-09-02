@@ -194,6 +194,10 @@ Every `Source` carries a `revision`. `graph_at(n)` includes claims and sources
 with `revision <= n`. Loading a new source increments the revision; earlier
 revisions remain computable.
 
+Loading a source whose id already exists is a validation error, not an
+overwrite — corrections arrive as a new source that `supersedes` claims, never
+as an edit to an existing one.
+
 `/diff a b` compares `conclusions(a)` against `conclusions(b)` and reports:
 condition status changes, basis changes, queue mode changes, superseded
 claims, opened and closed unknowns, and the recommendation change. It is
@@ -254,6 +258,9 @@ Rich throughout. Status is never carried by colour alone — every state has a
 glyph and a word (`✓ met`, `✓* met — premise contested`, `? unknown`,
 `✗ unmet`, `⚠ assumed`). Citations are monospaced and always adjacent to the
 claim they support. The `$2,850` figure never appears without its exclusions.
+
+`ARCHITECTURE.md` is kept current as modules land and their tests pass, per
+`CLAUDE.md`. It records what exists; this spec records what was designed.
 
 Degradation path: if Rich rendering runs over budget it falls back to plain
 tables. Nothing else is affected — the renderer holds no logic.

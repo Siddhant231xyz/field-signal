@@ -40,4 +40,8 @@ history.
 - Use git. Commit locally as work progresses — meaningful history is a
   deliverable, don't backfill it at the end.
 - Write code test-driven: failing test first, then the code that passes it.
+- Keep `ARCHITECTURE.md` current. After a code change lands and its tests
+  pass, update it in the same commit: what each module does, how data flows,
+  what the tests cover. It documents what exists, never what is planned —
+  `docs/superpowers/specs/` holds the design.
 - No secrets, personal data, or real external actions in the repo.
