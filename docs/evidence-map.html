@@ -1,0 +1,401 @@
+<title>HC-17 Evidence Map</title>
+<style>
+  .root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --plane: #f9f9f7;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --rule: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    --s1: #2a78d6;
+    --s7: #4a3aa7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --plane: #0d0d0d;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --rule: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255,255,255,0.10);
+      --s1: #3987e5;
+      --s7: #9085e9;
+    }
+  }
+  :root[data-theme="dark"] .root {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --plane: #0d0d0d;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --rule: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --s1: #3987e5;
+    --s7: #9085e9;
+  }
+
+  body { background: var(--plane); }
+  .root {
+    background: var(--plane);
+    color: var(--ink);
+    font: 14px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px 24px 72px;
+  }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 6px; }
+  h2 { font-size: 17px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--ink-2); margin: 0 0 4px; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 0; }
+  section { margin-top: 44px; }
+  .panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 14px;
+    overflow-x: auto;
+  }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 14px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .gl { font-weight: 700; width: 12px; text-align: center; }
+
+  svg { display: block; min-width: 900px; }
+  .box { fill: var(--surface-1); stroke: var(--axis); stroke-width: 1.5; }
+  .lbl { fill: var(--ink); font: 600 13px system-ui, sans-serif; }
+  .cite { fill: var(--muted); font: 11px system-ui, sans-serif; }
+  .sml { fill: var(--ink-2); font: 12px system-ui, sans-serif; }
+  .edge { stroke: var(--axis); stroke-width: 2; fill: none; }
+  .edge-dead { stroke: var(--critical); stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.c { text-align: center; white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  .who { font-weight: 600; }
+  .role { color: var(--muted); font-weight: 400; }
+
+  .yes { color: var(--good); font-weight: 700; }
+  .no  { color: var(--critical); font-weight: 700; }
+  .unk { color: var(--muted); font-weight: 700; }
+
+  .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); margin-top: 14px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; border-left: 3px solid var(--axis); }
+  .card.contradicted { border-left-color: var(--critical); }
+  .card.unknown { border-left-color: var(--serious); }
+  .card h3 { font-size: 14px; margin: 0 0 3px; }
+  .tag { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 5px; }
+  .tag.contradicted { color: var(--critical); }
+  .tag.unknown { color: var(--serious); }
+  .claims { list-style: none; padding: 0; margin: 10px 0 0; }
+  .claims li { padding: 5px 0 5px 0; border-top: 1px solid var(--rule); font-size: 13px; }
+  .claims li span { color: var(--muted); font-size: 11.5px; display: block; }
+  .why { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-2); }
+
+  .tl { position: relative; padding-left: 0; }
+  .tl ol { list-style: none; margin: 0; padding: 0; }
+  .tl li { display: grid; grid-template-columns: 108px 18px 1fr; gap: 12px; align-items: start; padding-bottom: 16px; }
+  .tl time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+  .mark { position: relative; }
+  .mark::before { content: ""; position: absolute; left: 5px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--axis); }
+  .mark::after { content: ""; position: absolute; left: 8.5px; top: 13px; bottom: -16px; width: 1.5px; background: var(--rule); }
+  .tl li:last-child .mark::after { display: none; }
+  .tl li.act .mark::before { background: var(--critical); }
+  .tl li.stop .mark::before { background: var(--serious); width: 12px; height: 12px; left: 3px; }
+  .tl .ev { font-size: 13px; }
+  .tl .ev em { font-style: normal; color: var(--muted); font-size: 11.5px; display: block; }
+  .tl li.stop .ev strong { color: var(--serious); }
+</style>
+
+<div class="root">
+
+<h1>HC-17 — evidence map</h1>
+<p class="sub">Hawthorne Commons Café · north soffit / change quote CA-118 · one working day, 14 September 2026</p>
+<p class="note">Every statement below is traced to a supplied source. Nothing is asserted that the packet does not carry.</p>
+
+<div class="legend">
+  <span><span class="gl" style="color:var(--good)">✓</span><span class="dot" style="background:var(--good)"></span>Supported — a source says it directly</span>
+  <span><span class="gl" style="color:var(--warning)">~</span><span class="dot" style="background:var(--warning)"></span>Inferred — we derived it from sources</span>
+  <span><span class="gl" style="color:var(--serious)">?</span><span class="dot" style="background:var(--serious)"></span>Unknown — the packet does not say</span>
+  <span><span class="gl" style="color:var(--critical)">✗</span><span class="dot" style="background:var(--critical)"></span>Contradicted — sources disagree</span>
+</div>
+
+<section>
+  <h2>1 · The deadlock</h2>
+  <p class="note">Three conditions gate the final duct connection. None is met. Two of them wait on a ceiling hatch nobody has located.</p>
+  <div class="panel">
+  <svg viewBox="0 0 1040 660" width="100%" role="img" aria-label="Dependency diagram: the access hatch blocks the architect and fire-protection sign-offs, which together with missing written authorisation hold the final duct connection, which in turn gates inspection, close-in and the opening date.">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/>
+      </marker>
+      <marker id="ax" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--critical)"/>
+      </marker>
+    </defs>
+
+    <!-- root cause -->
+    <rect class="box" x="390" y="18" width="266" height="74" rx="9" stroke="var(--serious)"/>
+    <text class="lbl" x="406" y="42"><tspan fill="var(--serious)" font-weight="700">?</tspan> ACCESS HATCH LOCATION</text>
+    <text class="sml" x="406" y="61">Not drawn. Not decided by anyone.</text>
+    <text class="cite" x="406" y="79">RCP shows it “centred between lights” · S-02 11 Sep 16:06</text>
+
+    <path class="edge" d="M470,92 L470,120 L250,120 L250,158" marker-end="url(#a)"/>
+    <path class="edge" d="M576,92 L576,120 L520,120 L520,158" marker-end="url(#a)"/>
+
+    <!-- blockers -->
+    <rect class="box" x="120" y="158" width="262" height="84" rx="9"/>
+    <text class="lbl" x="136" y="182"><tspan fill="var(--serious)" font-weight="700">?</tspan> Architect confirms duct move</text>
+    <text class="sml" x="136" y="201">Priya Shah · Atelier North</text>
+    <text class="cite" x="136" y="219">Asked 11 Sep; said “review Monday”</text>
+    <text class="cite" x="136" y="234">No outcome anywhere in the packet</text>
+
+    <rect class="box" x="399" y="158" width="262" height="84" rx="9"/>
+    <text class="lbl" x="415" y="182"><tspan fill="var(--serious)" font-weight="700">?</tspan> Sprinkler head located</text>
+    <text class="sml" x="415" y="201">Omar Ellis · Sentinel Fire</text>
+    <text class="cite" x="415" y="219">“I did not lay out the final head”</text>
+    <text class="cite" x="415" y="234">S-01 08:05:52</text>
+
+    <rect class="box" x="678" y="158" width="262" height="84" rx="9"/>
+    <text class="lbl" x="694" y="182"><tspan fill="var(--critical)" font-weight="700">✗</tspan> Written authorisation</text>
+    <text class="sml" x="694" y="201">Maya Chen only · Northline</text>
+    <text class="cite" x="694" y="219">$2,850 &gt; $2,000 threshold · S-00, S-04</text>
+    <text class="cite" x="694" y="234">Quote unsigned: “NOT AUTHORISED”</text>
+
+    <path class="edge" d="M251,242 L251,290 L470,290 L470,320" marker-end="url(#a)"/>
+    <path class="edge" d="M530,242 L530,320" marker-end="url(#a)"/>
+    <path class="edge" d="M809,242 L809,290 L590,290 L590,320" marker-end="url(#a)"/>
+
+    <!-- decision -->
+    <rect class="box" x="330" y="320" width="400" height="80" rx="9" stroke="var(--critical)" stroke-width="2"/>
+    <text class="lbl" x="352" y="348" font-size="14">FINAL DUCT CONNECTION — HELD</text>
+    <text class="sml" x="352" y="368">Maya: “Hold final connection.” · S-01 08:07:50</text>
+    <text class="cite" x="352" y="387">Restated to the channel by Luis · S-02 14 Sep 12:22</text>
+
+    <!-- sunk state, left -->
+    <rect class="box" x="60" y="320" width="240" height="80" rx="9" stroke="var(--critical)" stroke-dasharray="5 4"/>
+    <text class="lbl" x="76" y="344" font-size="12.5">ALREADY MOVED — unauthorised</text>
+    <text class="sml" x="76" y="363">Ben moved the branch Sun 13 Sep</text>
+    <text class="cite" x="76" y="381">Reversible per Ben · S-02 13 Sep 10:14</text>
+    <path class="edge-dead" d="M300,360 L322,360" marker-end="url(#ax)"/>
+
+    <!-- non-authority, right -->
+    <rect class="box" x="762" y="320" width="240" height="80" rx="9" stroke-dasharray="5 4"/>
+    <text class="lbl" x="778" y="344" font-size="12.5">Owner says “keep moving”</text>
+    <text class="sml" x="778" y="363">Tasha Reed · S-01 08:07:08, S-02 09:02</text>
+    <text class="cite" x="778" y="381">Cannot authorise sub changes · S-00</text>
+    <path class="edge-dead" d="M812,320 L812,270 L878,270 L878,246"/>
+    <text class="cite" x="828" y="264" fill="var(--critical)" font-weight="700">✗ not authority</text>
+
+    <path class="edge" d="M530,400 L530,432" marker-end="url(#a)"/>
+
+    <!-- downstream chain -->
+    <text class="cite" x="60" y="452">WHAT IS WAITING BEHIND IT</text>
+    <rect class="box" x="60" y="462" width="196" height="62" rx="8"/>
+    <text class="lbl" x="74" y="486" font-size="12.5">Above-ceiling inspection</text>
+    <text class="cite" x="74" y="504">Thu 17 Sep · A120 · booked</text>
+
+    <rect class="box" x="280" y="462" width="196" height="62" rx="8"/>
+    <text class="lbl" x="294" y="486" font-size="12.5">Soffit close-in</text>
+    <text class="cite" x="294" y="504">Fri 18 Sep · A130 · planned</text>
+
+    <rect class="box" x="500" y="462" width="196" height="62" rx="8"/>
+    <text class="lbl" x="514" y="486" font-size="12.5">Prime / first coat</text>
+    <text class="cite" x="514" y="504">21–22 Sep · A140 · planned</text>
+
+    <rect class="box" x="720" y="462" width="196" height="62" rx="8"/>
+    <text class="lbl" x="734" y="486" font-size="12.5">Floor finish, millwork</text>
+    <text class="cite" x="734" y="504">18–25 Sep · M230, F310</text>
+
+    <path class="edge" d="M256,493 L274,493" marker-end="url(#a)"/>
+    <path class="edge" d="M476,493 L494,493" marker-end="url(#a)"/>
+    <path class="edge" d="M696,493 L714,493" marker-end="url(#a)"/>
+
+    <rect class="box" x="380" y="570" width="300" height="62" rx="8" stroke="var(--s7)"/>
+    <text class="lbl" x="398" y="594" font-size="12.5">Training 5 Oct · Opening 12 Oct</text>
+    <text class="cite" x="398" y="612">C410, C420 · owner milestones · S-03</text>
+    <path class="edge" d="M818,524 L818,548 L620,548 L620,568" marker-end="url(#a)"/>
+    <path class="edge" d="M158,524 L158,548 L440,548 L440,568" marker-end="url(#a)"/>
+
+    <text class="cite" x="60" y="556">Dates are working-plan dates. S-03 states they are not proof that work occurred.</text>
+  </svg>
+  </div>
+</section>
+
+<section>
+  <h2>2 · Who can actually approve what</h2>
+  <p class="note">Three people expressed support for proceeding. Only one of them is permitted to authorise it, and she has not. Rules from S-00.</p>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Person</th>
+          <th class="c">Approve added cost</th>
+          <th class="c">Approve design</th>
+          <th class="c">Direct the field</th>
+          <th>What they said on 14 Sep</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="who">Maya Chen</span><br><span class="role">PM, Northline</span></td>
+          <td class="c"><span class="yes">✓ yes</span><br><span class="role">&gt;$2,000 in writing</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="yes">✓ yes</span></td>
+          <td>“Hold final connection.” Has not authorised CA-118. <span class="role">S-01 08:07:50</span></td>
+        </tr>
+        <tr>
+          <td><span class="who">Luis Ortega</span><br><span class="role">Superintendent, Northline</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="yes">✓ yes</span><br><span class="role">sequence only</span></td>
+          <td>Asked to “call it proceed pending paperwork”. <span class="role">S-01 08:07:42</span></td>
+        </tr>
+        <tr>
+          <td><span class="who">Tasha Reed</span><br><span class="role">Owner representative</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td>“Under three grand… I would rather keep moving.” <span class="role">S-01 08:07:08</span></td>
+        </tr>
+        <tr>
+          <td><span class="who">Priya Shah</span><br><span class="role">Architect, Atelier North</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="yes">✓ yes</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c" style="text-align:left"><span class="unk">? nothing on record</span> after 11 Sep 16:06</td>
+        </tr>
+        <tr>
+          <td><span class="who">Omar Ellis</span><br><span class="role">Fire foreman, Sentinel Fire</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="unk">? own scope</span></td>
+          <td>“I need to see where the access panel ends up.” <span class="role">S-01 08:05:52</span></td>
+        </tr>
+        <tr>
+          <td><span class="who">Ben Walker</span><br><span class="role">HVAC foreman, Cascade Air</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="unk">? own crew</span></td>
+          <td>Moved the branch Sunday; needs an answer today. <span class="role">S-02 13 Sep 10:14</span></td>
+        </tr>
+        <tr>
+          <td><span class="who">Nina Alvarez</span><br><span class="role">Millwork PM, Timberline</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="no">✗ no</span></td>
+          <td class="c"><span class="unk">? own scope</span></td>
+          <td>Split delivery “per the approved recovery schedule”. <span class="role">S-02 11:38</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>3 · Where the sources disagree, and where they go quiet</h2>
+  <div class="cards">
+
+    <div class="card contradicted">
+      <span class="tag contradicted">✗ Contradicted — 3 sources</span>
+      <h3>How far west did the duct move?</h3>
+      <ul class="claims">
+        <li>“About 6 in from old spot”<span>Ben · S-02 · 13 Sep 10:14</span></li>
+        <li>“Six or eight inches west now”<span>Ben · S-01 · 08:08:41</span></li>
+        <li>“Approximately 6–12 inches west”<span>Cascade Air · S-04 · proposed scope</span></li>
+      </ul>
+      <p class="why">No measurement exists in the packet. All three are the same party estimating. A product that prints one number is inventing it.</p>
+    </div>
+
+    <div class="card contradicted">
+      <span class="tag contradicted">✗ Contradicted — 2 sources</span>
+      <h3>What is this change worth?</h3>
+      <ul class="claims">
+        <li>“A two-thousand-dollar issue”<span>Tasha · S-01 · 08:12:19</span></li>
+        <li>Total proposed change $2,850.00<span>Cascade Air · S-04 · pricing</span></li>
+      </ul>
+      <p class="why">The gap straddles the $2,000 authorisation threshold, so it is not cosmetic. And $2,850 excludes drywall, paint, fire-protection rework, redesign and permit revision — the true exposure is larger and unstated.</p>
+    </div>
+
+    <div class="card contradicted">
+      <span class="tag contradicted">✗ Contradicted — 2 speakers</span>
+      <h3>Was the clash agreed last week?</h3>
+      <ul class="claims">
+        <li>“I can kick the diffuser toward the column. We talked about it last week.”<span>Ben · S-01 · 08:05:34</span></li>
+        <li>“I said I needed room. I did not lay out the final head.”<span>Omar · S-01 · 08:05:52</span></li>
+      </ul>
+      <p class="why">Directly opposed accounts of the same prior conversation, 18 seconds apart, with no third source to settle it.</p>
+    </div>
+
+    <div class="card unknown">
+      <span class="tag unknown">? Unknown — not false</span>
+      <h3>Did the 1:00 pm field review happen?</h3>
+      <ul class="claims">
+        <li>Review scheduled: Priya / Omar / Ben at the north soffit<span>Luis · S-02 · 14 Sep 12:22</span></li>
+        <li>Last entry in the packet is that message<span>S-02 · record ends</span></li>
+      </ul>
+      <p class="why">P-03 was taken at 14:36 by Luis, but its caption is about millwork route and proves nothing about the review. Silence is not evidence that it failed to happen.</p>
+    </div>
+
+    <div class="card unknown">
+      <span class="tag unknown">? Unknown — unresolvable</span>
+      <h3>Twelve seconds of machine noise</h3>
+      <ul class="claims">
+        <li>“[compressor noise] … access … twenty-four … north”<span>Unattributed · S-01 · 08:11:02</span></li>
+      </ul>
+      <p class="why">Possibly a 24-inch clearance requirement, which would matter enormously; possibly nothing. No speaker is identified. The transcript header warns of machinery noise from 08:11–08:13.</p>
+    </div>
+
+    <div class="card unknown">
+      <span class="tag unknown">? Unknown — source not supplied</span>
+      <h3>The “approved recovery schedule”</h3>
+      <ul class="claims">
+        <li>Split delivery is “not a new delay; the approved recovery schedule split the shipment”<span>Nina · S-01 08:09:18, S-02 11:38</span></li>
+        <li>S-03 records the dates but not the authority for them<span>S-03 · M210, M220</span></li>
+      </ul>
+      <p class="why">The document Nina cites is not in the packet, so her explanation cannot be checked. The dates are corroborated; the claim that they were pre-approved is not.</p>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>4 · The day, and where the record stops</h2>
+  <div class="panel tl">
+    <ol>
+      <li><time>Fri 11, 15:48</time><span class="mark"></span><span class="ev"><strong>Luis flags the clash</strong> to Priya and Maya, attaches a marked-up photo.<em>S-02</em></span></li>
+      <li><time>Fri 11, 16:06</time><span class="mark"></span><span class="ev">Priya: will review Monday — asks for the proposed access-panel location.<em>S-02</em></span></li>
+      <li class="act"><time>Sun 13, 10:14</time><span class="mark"></span><span class="ev"><strong>Ben moves the branch west.</strong> No authorisation exists. Left loose and reversible.<em>S-02 · this is the act everything else is now reacting to</em></span></li>
+      <li><time>Sun 13, 10:31</time><span class="mark"></span><span class="ev">Luis: leave it open, photograph it, do not cover. Maya needs the quote.<em>S-02</em></span></li>
+      <li><time>Sat 13</time><span class="mark"></span><span class="ev">Quote CA-118 issued — $2,850, unsigned, “PRICING SUBMITTED — NOT AUTHORISED”.<em>S-04</em></span></li>
+      <li><time>Mon 14, 07:12</time><span class="mark"></span><span class="ev">Ben resends the quote: “need direction today to keep crew Tuesday”.<em>S-02</em></span></li>
+      <li><time>Mon 14, 07:26</time><span class="mark"></span><span class="ev">Maya: received — need architect and fire-protection review; keep it reversible.<em>S-02</em></span></li>
+      <li><time>Mon 14, 07:42</time><span class="mark"></span><span class="ev">P-01 photographed by Luis — north counter, before the huddle.<em>P-REG</em></span></li>
+      <li><time>Mon 14, 08:05–08:12</time><span class="mark"></span><span class="ev"><strong>The huddle.</strong> The disputed prior agreement, the cost framing, the “proceed pending paperwork” request, and Maya’s hold all occur here.<em>S-01</em></span></li>
+      <li><time>Mon 14, 09:02</time><span class="mark"></span><span class="ev">Tasha: protect the opening, comfortable with a small field fix.<em>S-02 · not an authorisation</em></span></li>
+      <li><time>Mon 14, 10:18</time><span class="mark"></span><span class="ev">P-02 photographed by Ben — his own work, his own caption.<em>P-REG</em></span></li>
+      <li><time>Mon 14, 11:38</time><span class="mark"></span><span class="ev">Nina confirms split delivery: counters Tue 15, curved booth Thu 17.<em>S-02</em></span></li>
+      <li><time>Mon 14, 12:22</time><span class="mark"></span><span class="ev">Luis posts the 1:00 field review. Direction unchanged: no final connection, no board in that bay.<em>S-02</em></span></li>
+      <li class="stop"><time>Mon 14, ~13:00</time><span class="mark"></span><span class="ev"><strong>The record stops here.</strong> Whether the review happened, and what it decided, is not in the packet.<em>P-03 at 14:36 shows the dining area, not the soffit</em></span></li>
+    </ol>
+  </div>
+  <p class="note" style="margin-top:12px">Inspection is Thu 17 Sep — three days after the last entry above.</p>
+</section>
+
+<p class="note" style="margin-top:48px">Sources: S-00 primer · S-01 huddle transcript · S-02 message thread · S-03 schedule excerpt · S-04 quote CA-118 · P-01…P-03 photographs · P-REG photo register. Fictional project evidence supplied for the Field Signal exercise.</p>
+
+</div>
