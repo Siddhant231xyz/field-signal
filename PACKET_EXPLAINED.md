@@ -52,6 +52,40 @@ off, the ceiling can't close. If the ceiling can't close, everything behind it
 slides — and at the end of that queue is a 12 October opening date the owner
 has presumably already told people about.
 
+## The three things fighting over that soffit
+
+1. **The duct branch + diffuser** — Ben's. This is what he moved ~6″ west on
+   Sunday. "Reversible" describes *this*: it's hung loose, no final tap into
+   the trunk, no diffuser fitted, no ceiling cut. He can put it back in an
+   hour if the architect says no.
+2. **The sprinkler head** — Omar's. Not installed, not even laid out.
+3. **The access hatch** — nobody's yet.
+
+> **Access panel / hatch** = a removable square in the finished ceiling so
+> someone can reach the valves and dampers hidden inside the soffit later,
+> without smashing the ceiling open.
+
+The hatch is a *design* item, not something Ben installed. Priya's note points
+at the **reflected ceiling plan** (*the drawing showing the ceiling as if
+looking down at a mirror on the floor — where lights, vents and hatches sit*),
+which shows it centred between the lights.
+
+And here's why it matters — it's the actual jam:
+
+- Priya won't confirm the duct move until she knows where the hatch goes
+  ("please include proposed access-panel location")
+- Omar won't finalise his sprinkler head until he knows where the hatch ends
+  up ("I need to see where the access panel ends up")
+- Ben can't make his final connection until both of those land
+
+So a piece of ceiling trim that nobody has drawn yet is holding up two foremen
+and a $2,850 decision. Ben's "reversible" is the only thing keeping this
+cheap — the moment that duct gets tapped and connected, or the ceiling boards
+go on, the hatch position stops being a free choice.
+
+Worth noting: the packet never resolves where the hatch goes. That's an
+**unknown**, not an inference.
+
 ## The seven people and what each of them is doing
 
 **Ben Walker — the air-conditioning foreman (Cascade Air).**
