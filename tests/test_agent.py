@@ -16,7 +16,9 @@ from field_signal.model import load_revision, revision_numbers
 
 @pytest.fixture
 def root(tmp_path, monkeypatch):
-    shutil.copytree("data", tmp_path / "data")
+    # Only v1: a test must not depend on how many revisions data/ happens to
+    # hold, or a real agent run on the developer's machine breaks the suite.
+    shutil.copytree("data/v1", tmp_path / "data" / "v1")
     monkeypatch.setattr(agent, "UPLOADS", tmp_path / "uploads")
     monkeypatch.setattr(agent, "REPO", tmp_path)
     return tmp_path / "data"
@@ -140,3 +142,86 @@ def test_an_invalid_extraction_leaves_the_revisions_alone(root, uploads):
         agent.ingest([uploads], root=root, base=1, runner=fake_extractor(broken))
     assert revision_numbers(root) == [1]
     assert not (agent.UPLOADS / "v2").exists()
+
+
+# --- progress reporting ---------------------------------------------------
+#
+# The bug this covers: a run is started, the user navigates away, and there is
+# no way to tell whether anything is still happening. Progress has to live
+# outside the page that started it.
+
+
+def progress_runner(ledger_json, lines):
+    """A runner that emits the lines the real container run prints."""
+
+    def run(inputs, output, on_line=None):
+        for line in lines:
+            if on_line:
+                on_line(line)
+        for name, payload in ledger_json.items():
+            (output / name).write_text(json.dumps(payload))
+
+    return run
+
+
+REAL_LINES = [
+    "Building field-signal-ingestor-example:latest ...",
+    "Starting containerized agent ...",
+    "shell call 1",
+    "shell call 2",
+    "shell call 17",
+    "Validated output promoted to /out",
+]
+
+
+def test_progress_reports_each_phase_in_order(root, uploads):
+    seen = []
+    agent.ingest(
+        [uploads],
+        root=root,
+        base=1,
+        runner=progress_runner(LEDGER, REAL_LINES),
+        on_progress=lambda p: seen.append(dict(p)),
+    )
+    phases = [p["phase"] for p in seen]
+    assert phases[0] == "staging"
+    assert "building" in phases
+    assert "extracting" in phases
+    assert "writing" in phases
+    assert phases[-1] == "done"
+
+
+def test_progress_counts_shell_calls(root, uploads):
+    last = {}
+    agent.ingest(
+        [uploads],
+        root=root,
+        base=1,
+        runner=progress_runner(LEDGER, REAL_LINES),
+        on_progress=lambda p: last.update(p),
+    )
+    assert last["shell_calls"] == 17  # the highest seen, not the count of lines
+    assert last["revision"] == 2
+    assert last["files"] == 2
+
+
+def test_progress_records_a_failure_rather_than_going_quiet(root, uploads):
+    last = {}
+
+    def boom(inputs, output, on_line=None):
+        if on_line:
+            on_line("Building the image ...")
+        raise agent.AgentError("docker is not running")
+
+    with pytest.raises(agent.AgentError):
+        agent.ingest(
+            [uploads], root=root, base=1, runner=boom, on_progress=lambda p: last.update(p)
+        )
+    assert last["phase"] == "failed"
+    assert "docker" in last["error"]
+
+
+def test_a_runner_that_ignores_on_line_still_works(root, uploads):
+    """The default runner signature must stay optional for existing callers."""
+    n, _ = agent.ingest([uploads], root=root, base=1, runner=fake_extractor(LEDGER))
+    assert n == 2

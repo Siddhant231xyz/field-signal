@@ -11,6 +11,7 @@ that the reader can compare against the one before it. It never edits one.
 
 from __future__ import annotations
 
+import inspect
 import shutil
 import tempfile
 from dataclasses import replace
@@ -26,16 +27,50 @@ class AgentError(RuntimeError):
     pass
 
 
-def _docker_runner(inputs: Path, output: Path) -> None:
+def _docker_runner(inputs: Path, output: Path, on_line=None) -> None:
     """The real extractor. Imported lazily so the CLI runs without it."""
-    from examples.run_containerized import main
+    from examples import run_containerized
 
-    code = main(["--input", str(inputs), "--output", str(output), "--no-compare"])
+    run_containerized.ON_LINE = on_line
+    try:
+        code = run_containerized.main(
+            ["--input", str(inputs), "--output", str(output), "--no-compare"]
+        )
+    finally:
+        run_containerized.ON_LINE = None
     if code != 0:
         raise AgentError(
             f"the ingestion agent exited with {code}. It needs Docker running and "
             f"OPENAI_API_KEY set in .env — see examples/README.md."
         )
+
+
+# What a caller can show while a run is in flight. The container prints these
+# lines; nothing else tells an embedder that anything is happening.
+PHASES = {
+    "staging": "copying your files into a clean directory",
+    "building": "building the container image",
+    "extracting": "the agent is reading your documents",
+    "writing": "merging into a new revision",
+    "done": "finished",
+    "failed": "stopped — nothing was written",
+}
+
+
+def _phase_from(line: str) -> tuple[str, int | None]:
+    """Map one line of container output to a phase and a shell-call count."""
+    if line.startswith("shell call"):
+        try:
+            return "extracting", int(line.split()[-1])
+        except ValueError:
+            return "extracting", None
+    if line.startswith("Building"):
+        return "building", None
+    if line.startswith("Starting containerized agent"):
+        return "extracting", None
+    if line.startswith("Validated output promoted"):
+        return "writing", None
+    return "", None
 
 
 def stage(paths: list[Path], destination: Path) -> list[Path]:
@@ -92,13 +127,48 @@ def ingest(
     root: Path = DATA_ROOT,
     base: int,
     runner=_docker_runner,
+    on_progress=None,
 ) -> tuple[int, list[Path]]:
-    """Extract `paths` and write base + extraction as a new revision."""
+    """Extract `paths` and write base + extraction as a new revision.
+
+    `on_progress` receives a dict as the run moves through its phases, so a
+    caller can say what is happening. A run takes minutes; without this the
+    only signal is that nothing has come back yet.
+    """
+    state = {"phase": "staging", "shell_calls": 0, "files": 0, "base": base,
+             "revision": None, "error": None, "merged_people": {}}
+
+    def report(**changes):
+        state.update(changes)
+        if on_progress:
+            on_progress(dict(state))
+
+    def on_line(line: str):
+        phase, calls = _phase_from(line)
+        if not phase:
+            return
+        # Highest seen, not a running total: the container numbers its own.
+        report(phase=phase, shell_calls=max(state["shell_calls"], calls or 0))
+
+    try:
+        return _ingest(paths, root, base, runner, report, on_line, state)
+    except Exception as exc:
+        report(phase="failed", error=str(exc))
+        raise
+
+
+def _ingest(paths, root, base, runner, report, on_line, state) -> tuple[int, list[Path]]:
     with tempfile.TemporaryDirectory(prefix="fs-ingest-") as tmp:
         inputs, output = Path(tmp) / "in", Path(tmp) / "out"
         staged = stage(paths, inputs)
+        report(phase="staging", files=len(staged))
         output.mkdir()
-        runner(inputs, output)
+        # Ask the signature rather than catching TypeError: a real TypeError
+        # inside a three-argument runner would otherwise run it twice.
+        if len(inspect.signature(runner).parameters) >= 3:
+            runner(inputs, output, on_line)
+        else:
+            runner(inputs, output)
         try:
             added = load_ledger(output)
         except (OSError, KeyError, ValueError) as exc:
@@ -112,9 +182,12 @@ def ingest(
             shutil.rmtree(keep)
         added = _repoint(added, {p.name: p for p in stage(staged, keep)})
 
+        report(phase="writing")
+        merged: dict[str, str] = {}
         try:
-            n = create_revision(root, base=base, added=added)
+            n = create_revision(root, base=base, added=added, merged_people=merged)
         except Exception:
             shutil.rmtree(keep, ignore_errors=True)
             raise
+        report(phase="done", revision=n, merged_people=merged)
         return n, sorted(keep.iterdir())

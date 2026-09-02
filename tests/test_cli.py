@@ -35,7 +35,7 @@ def render(app: App, *commands: str) -> str:
 @pytest.fixture
 def data(tmp_path):
     """A copy, always. /load and /agent write revisions to disk."""
-    shutil.copytree("data", tmp_path / "data")
+    shutil.copytree("data/v1", tmp_path / "data" / "v1")
     return tmp_path / "data"
 
 

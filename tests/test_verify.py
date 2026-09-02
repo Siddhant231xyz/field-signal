@@ -14,7 +14,7 @@ from field_signal.verify import normalise, verify
 
 @pytest.fixture(scope="module")
 def rows():
-    return verify(load_ledger())
+    return verify(load_ledger("data/v1"))
 
 
 def test_every_transcribed_claim_is_found_in_its_source(rows):
@@ -27,7 +27,7 @@ def test_image_claims_are_skipped_not_silently_passed(rows):
     assert skipped["CL-P02-01"] == "skipped — image"
     assert skipped["CL-P02-02"] == "skipped — image"
     # and they are still counted, not dropped from the report
-    assert len(rows) == len(load_ledger().claims)
+    assert len(rows) == len(load_ledger("data/v1").claims)
 
 
 def test_a_drifted_support_string_is_reported(tmp_path):

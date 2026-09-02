@@ -331,7 +331,15 @@ class Api:
     def __post_init__(self) -> None:
         self.data_dir = Path(self.data_dir)
         self.selected = 0
+        # A run takes minutes and the page that started it may be gone by the
+        # time it ends, so progress lives here rather than in the component.
+        self._progress = {"phase": "idle", "running": False, "shell_calls": 0,
+                          "files": 0, "base": None, "revision": None,
+                          "error": None, "merged_people": {}}
         self.reload()
+
+    def progress(self) -> dict:
+        return dict(self._progress)
 
     def reload(self) -> None:
         self.ledgers = {
@@ -365,10 +373,20 @@ class Api:
             lambda: create_revision(self.data_dir, self.selected, load_fixture(path))
         )
 
-    def ingest(self, paths: list[Path]) -> dict:
+    def ingest(self, paths: list[Path], runner=None) -> dict:
         """Uploads become a new revision off the selected one."""
+        def record(p):
+            self._progress = {**p, "running": p["phase"] not in ("done", "failed")}
+
+        kwargs = {"runner": runner} if runner else {}
         return self._new_revision(
-            lambda: ingest(paths, root=self.data_dir, base=self.selected)[0]
+            lambda: ingest(
+                paths,
+                root=self.data_dir,
+                base=self.selected,
+                on_progress=record,
+                **kwargs,
+            )[0]
         )
 
     def _new_revision(self, make) -> dict:
@@ -428,6 +446,8 @@ def make_handler(api: Api, static_dir: Path):
                     return self._json(api.verify())
                 if url.path == "/api/fixtures":
                     return self._json(api.fixtures())
+                if url.path == "/api/agent/status":
+                    return self._json(api.progress())
                 if url.path == "/api/diff":
                     a = int(query.get("a", ["0"])[0])
                     b = int(query.get("b", [str(api.ledger.max_revision())])[0])

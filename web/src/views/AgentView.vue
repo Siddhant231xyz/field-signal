@@ -1,42 +1,51 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { actions, store } from '../store'
 
 /* Files in, a new revision out. The reading happens in a container on the
-   server; nothing here interprets a document. */
+   server; nothing here interprets a document.
+
+   All run state lives in the store, so switching sheets mid-run and coming
+   back shows the same progress rather than an empty page. */
 
 const dropping = ref(false)
-const picked = ref([])
-const done = ref(null)
 const input = ref(null)
 
-const total = computed(() =>
-  picked.value.reduce((sum, f) => sum + f.size, 0),
-)
+const STEPS = [
+  ['staging', 'Copying your files into a clean directory'],
+  ['building', 'Building the container image'],
+  ['extracting', 'Reading your documents'],
+  ['writing', 'Merging into a new revision'],
+]
 
-function add(list) {
-  const incoming = Array.from(list)
-  const names = new Set(picked.value.map((f) => f.name + f.size))
-  picked.value.push(...incoming.filter((f) => !names.has(f.name + f.size)))
+const phase = computed(() => store.progress.phase)
+const failed = computed(() => phase.value === 'failed')
+
+const reached = computed(() => {
+  const order = STEPS.map(([k]) => k)
+  if (phase.value === 'done') return order.length
+  const i = order.indexOf(phase.value)
+  return i === -1 ? 0 : i
+})
+
+const total = computed(() => store.picked.reduce((sum, f) => sum + f.size, 0))
+
+function stepState(i) {
+  if (failed.value) return i < reached.value ? 'done' : i === reached.value ? 'failed' : 'todo'
+  if (i < reached.value) return 'done'
+  if (i === reached.value && store.busy) return 'active'
+  if (phase.value === 'done') return 'done'
+  return 'todo'
 }
 
 function drop(event) {
   dropping.value = false
-  add(event.dataTransfer.files)
-}
-
-function remove(i) {
-  picked.value.splice(i, 1)
+  actions.pick(Array.from(event.dataTransfer.files))
 }
 
 async function run() {
-  done.value = null
-  const base = store.current
-  if (await actions.ingest(picked.value)) {
-    done.value = { base, revision: store.current }
-    picked.value = []
-    if (input.value) input.value.value = ''
-  }
+  await actions.ingest()
+  if (input.value) input.value.value = ''
 }
 
 function size(bytes) {
@@ -44,6 +53,9 @@ function size(bytes) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
+
+// A run may have been started from this sheet, then left. Ask the server.
+onMounted(actions.refreshProgress)
 </script>
 
 <template>
@@ -59,6 +71,63 @@ function size(bytes) {
         you have selected. Nothing you can see now is edited or replaced.
       </p>
     </header>
+
+    <!-- Progress first: if a run is going, that is the only thing that matters. -->
+    <section v-if="store.busy || phase === 'done' || failed" class="panel block run">
+      <div class="panel__head">
+        <h2 class="panel__title">
+          {{ store.busy ? 'Reading' : failed ? 'Stopped' : 'Finished' }}
+        </h2>
+        <span v-if="store.busy" class="spinner" aria-hidden="true" />
+        <span class="count">
+          {{ store.progress.files }} file{{ store.progress.files === 1 ? '' : 's' }}
+          <template v-if="store.progress.base"> · off v{{ store.progress.base }}</template>
+        </span>
+      </div>
+      <div class="panel__body">
+        <ol class="steps">
+          <li v-for="(s, i) in STEPS" :key="s[0]" class="step" :class="`step--${stepState(i)}`">
+            <span class="step__mark" aria-hidden="true">
+              {{ stepState(i) === 'done' ? '✓' : stepState(i) === 'failed' ? '✗' : stepState(i) === 'active' ? '▶' : '·' }}
+            </span>
+            <span class="step__label">{{ s[1] }}</span>
+            <span v-if="s[0] === 'extracting' && store.progress.shell_calls" class="step__meta">
+              {{ store.progress.shell_calls }} shell command{{ store.progress.shell_calls === 1 ? '' : 's' }} run
+            </span>
+          </li>
+        </ol>
+
+        <p v-if="store.busy" class="working">
+          This takes minutes. You can move to another sheet — the run keeps
+          going and this page will show where it got to.
+        </p>
+
+        <p v-if="failed" class="failed">
+          <strong>Nothing was written.</strong>
+          {{ store.progress.error || store.error }}
+        </p>
+
+        <template v-if="!store.busy && !failed && store.lastRun?.ok">
+          <p class="reason">
+            <strong>Revision {{ store.lastRun.revision }}</strong> created from
+            v{{ store.lastRun.base }}, and now selected — every sheet shows it.
+            Open <strong>Revisions</strong> to see what moved, or select
+            v{{ store.lastRun.base }} again to go back.
+          </p>
+          <p
+            v-if="Object.keys(store.progress.merged_people || {}).length"
+            class="merged"
+          >
+            The agent named people it had already met. Matched to the existing
+            record so authority is not split in two:
+            <span class="mono">
+              {{ Object.entries(store.progress.merged_people).map(([a, b]) => `${a} → ${b}`).join(', ') }}
+            </span>
+            Capabilities came from the packet, not from the agent.
+          </p>
+        </template>
+      </div>
+    </section>
 
     <section
       class="drop"
@@ -76,7 +145,8 @@ function size(bytes) {
           type="file"
           multiple
           class="visually-hidden"
-          @change="add($event.target.files)"
+          :disabled="store.busy"
+          @change="actions.pick(Array.from($event.target.files))"
         />
       </label>
       <p class="drop__hint">
@@ -85,46 +155,26 @@ function size(bytes) {
       </p>
     </section>
 
-    <section v-if="picked.length" class="panel block">
+    <section v-if="store.picked.length" class="panel block">
       <div class="panel__head">
         <h2 class="panel__title">Ready to read</h2>
-        <span class="count">{{ picked.length }} file{{ picked.length === 1 ? '' : 's' }} · {{ size(total) }}</span>
+        <span class="count">
+          {{ store.picked.length }} file{{ store.picked.length === 1 ? '' : 's' }} · {{ size(total) }}
+        </span>
       </div>
       <div class="panel__body">
-        <div v-for="(f, i) in picked" :key="f.name + i" class="file">
+        <div v-for="(f, i) in store.picked" :key="f.name + i" class="file">
           <span class="file__name">{{ f.name }}</span>
           <span class="file__size">{{ size(f.size) }}</span>
-          <button class="file__x" :disabled="store.busy" aria-label="Remove" @click="remove(i)">×</button>
+          <button class="file__x" :disabled="store.busy" aria-label="Remove" @click="actions.unpick(i)">×</button>
         </div>
 
         <div class="actions">
           <button class="btn btn--primary" :disabled="store.busy" @click="run">
             {{ store.busy ? 'reading…' : `read into a new revision off v${store.current}` }}
           </button>
-          <button class="btn" :disabled="store.busy" @click="picked = []">clear</button>
+          <button class="btn" :disabled="store.busy" @click="actions.clearPicked">clear</button>
         </div>
-
-        <p v-if="store.busy" class="working">
-          The container is inspecting each file, installing what it needs to
-          parse it, and extracting claims. A full packet takes several minutes.
-        </p>
-      </div>
-    </section>
-
-    <p v-if="store.error" class="failed">
-      <strong>Nothing was written.</strong> {{ store.error }}
-    </p>
-
-    <section v-if="done" class="panel block done">
-      <div class="panel__head">
-        <h2 class="panel__title">Revision {{ done.revision }} created from v{{ done.base }}</h2>
-      </div>
-      <div class="panel__body">
-        <p class="reason">
-          It is now the selected revision, so every sheet shows it. Open
-          <strong>Revisions</strong> to see what moved, or select v{{ done.base }}
-          again to go back — nothing was overwritten.
-        </p>
       </div>
     </section>
 
@@ -139,6 +189,7 @@ function size(bytes) {
           <li>Its output is a model's proposal. It lands in a new revision to be compared, never as an edit to one you have already read.</li>
           <li>Document contents are evidence, never instructions — text in a file asking the agent to change its behaviour is ignored.</li>
           <li>Re-reading the same evidence adds nothing: claims are deduplicated by source, locator and value, not only by id.</li>
+          <li>A person it has already met keeps the capabilities the packet gave them. It cannot grant anyone authority by naming them again.</li>
         </ul>
         <p class="reason">
           Requires Docker and an <code>OPENAI_API_KEY</code> in
@@ -174,6 +225,55 @@ function size(bytes) {
   font-weight: 500;
 }
 
+.run {
+  margin-bottom: 14px;
+  border-color: var(--cyan);
+}
+
+.spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.step__mark {
+  font-family: var(--mono);
+  width: 14px;
+  flex: none;
+}
+
+.step--todo { color: var(--chalk-faint); opacity: 0.55; }
+.step--done { color: var(--met); }
+.step--active { color: var(--cyan); font-weight: 500; }
+.step--failed { color: var(--unmet); }
+
+.step__meta {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--chalk-faint);
+}
+
 .drop {
   border: 2px dashed var(--line);
   padding: 40px 20px;
@@ -186,10 +286,7 @@ function size(bytes) {
   background: color-mix(in srgb, var(--cyan) 8%, transparent);
 }
 
-.drop--busy {
-  opacity: 0.5;
-  pointer-events: none;
-}
+.drop--busy { opacity: 0.4; pointer-events: none; }
 
 .drop__lead {
   font-family: var(--display);
@@ -198,17 +295,9 @@ function size(bytes) {
   margin: 0 0 6px;
 }
 
-.drop__or {
-  margin: 0 0 12px;
-  font-size: 12px;
-  color: var(--chalk-faint);
-}
+.drop__or { margin: 0 0 12px; font-size: 12px; color: var(--chalk-faint); }
 
-.drop__hint {
-  margin: 16px 0 0;
-  font-size: 12.5px;
-  color: var(--chalk-faint);
-}
+.drop__hint { margin: 16px 0 0; font-size: 12.5px; color: var(--chalk-faint); }
 
 .visually-hidden {
   position: absolute;
@@ -219,9 +308,7 @@ function size(bytes) {
   white-space: nowrap;
 }
 
-.block {
-  margin-top: 14px;
-}
+.block { margin-top: 14px; }
 
 .count {
   margin-left: auto;
@@ -238,9 +325,7 @@ function size(bytes) {
   border-top: 1px solid var(--line-soft);
 }
 
-.file:first-child {
-  border-top: 0;
-}
+.file:first-child { border-top: 0; }
 
 .file__name {
   font-family: var(--mono);
@@ -249,11 +334,7 @@ function size(bytes) {
   overflow-wrap: anywhere;
 }
 
-.file__size {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--chalk-faint);
-}
+.file__size { font-family: var(--mono); font-size: 11.5px; color: var(--chalk-faint); }
 
 .file__x {
   background: none;
@@ -265,16 +346,9 @@ function size(bytes) {
   padding: 0 4px;
 }
 
-.file__x:hover {
-  color: var(--unmet);
-}
+.file__x:hover { color: var(--unmet); }
 
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 18px;
-  flex-wrap: wrap;
-}
+.actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
 
 .btn {
   font-family: var(--display);
@@ -290,10 +364,7 @@ function size(bytes) {
   display: inline-block;
 }
 
-.btn:hover:not(:disabled) {
-  border-color: var(--cyan);
-  color: var(--cyan);
-}
+.btn:hover:not(:disabled) { border-color: var(--cyan); color: var(--cyan); }
 
 .btn--primary {
   border-color: var(--cyan);
@@ -301,10 +372,7 @@ function size(bytes) {
   background: color-mix(in srgb, var(--cyan) 12%, transparent);
 }
 
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .working {
   margin: 14px 0 0;
@@ -316,19 +384,21 @@ function size(bytes) {
 
 .failed {
   margin: 14px 0 0;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border: 1px solid var(--unmet);
   color: var(--unmet);
   font-size: 13px;
 }
 
-.done {
-  border-color: var(--met);
+.merged {
+  margin: 12px 0 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--contested);
+  font-size: 12.5px;
+  color: var(--chalk-dim);
 }
 
-.done .panel__title {
-  color: var(--met);
-}
+.mono { font-family: var(--mono); font-size: 11.5px; color: var(--contested); }
 
 .reason {
   margin: 12px 0 0;
@@ -336,6 +406,8 @@ function size(bytes) {
   color: var(--chalk-dim);
   max-width: 92ch;
 }
+
+.reason strong { color: var(--chalk); font-weight: 500; }
 
 .rules {
   margin: 0;
@@ -345,18 +417,8 @@ function size(bytes) {
   max-width: 92ch;
 }
 
-.rules li {
-  margin-bottom: 7px;
-}
+.rules li { margin-bottom: 7px; }
+.rules strong { color: var(--chalk); font-weight: 500; }
 
-.rules strong {
-  color: var(--chalk);
-  font-weight: 500;
-}
-
-code {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--cyan);
-}
+code { font-family: var(--mono); font-size: 12px; color: var(--cyan); }
 </style>

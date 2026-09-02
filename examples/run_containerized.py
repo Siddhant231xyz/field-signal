@@ -15,13 +15,47 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = Path(__file__).resolve().parent
 
 
+# Set by an embedding caller (field_signal.agent) to watch progress. When it
+# is None the output goes straight to the console, exactly as before.
+ON_LINE = None
+
+
 def _run(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(command, text=True, timeout=timeout, check=False)
+        if ON_LINE is None:
+            return subprocess.run(command, text=True, timeout=timeout, check=False)
+        return _run_streaming(command, timeout)
     except FileNotFoundError as exc:
         raise IngestionError("docker CLI was not found") from exc
     except subprocess.TimeoutExpired as exc:
         raise IngestionError("Docker ingestion run timed out") from exc
+
+
+def _run_streaming(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+    """Same call, but each output line is echoed and handed to ON_LINE.
+
+    A long container run is otherwise completely silent to anything embedding
+    this, which leaves a caller unable to say whether it is still working.
+    """
+    process = subprocess.Popen(
+        command,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
+    )
+    try:
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            try:
+                ON_LINE(line.rstrip())
+            except Exception:  # a broken watcher must not kill the run
+                pass
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        raise
+    return subprocess.CompletedProcess(command, process.returncode)
 
 
 def _env_value(name: str) -> str | None:

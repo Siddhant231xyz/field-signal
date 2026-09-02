@@ -5,3 +5,8 @@ __pycache__/
 .pytest_cache/
 .~lock.*#
 uploads/
+
+# v1 is the packet ledger and is source. Every later revision is generated at
+# run time by /load or /agent — local working state, not something to commit.
+data/v*/
+!data/v1/

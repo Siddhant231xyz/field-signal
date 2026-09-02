@@ -16,7 +16,7 @@ from field_signal.model import create_revision, load_fixture, load_revision
 @pytest.fixture(scope="module")
 def revisions(tmp_path_factory):
     root = tmp_path_factory.mktemp("repo") / "data"
-    shutil.copytree("data", root)
+    shutil.copytree("data/v1", root / "v1")
     n = create_revision(root, base=1, added=load_fixture("demo/rfi-04.json"))
     return conclusions(load_revision(root, 1)), conclusions(load_revision(root, n))
 

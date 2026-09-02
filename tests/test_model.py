@@ -8,7 +8,7 @@ from field_signal.model import Ledger, ValidationError, load_fixture, load_ledge
 
 
 def test_packet_ledger_loads_and_validates():
-    ledger = load_ledger()
+    ledger = load_ledger("data/v1")  # the packet revision, whatever came after
     assert len(ledger.people) == 7
     assert ledger.claims  # the ledger is not empty
     # Every claim carries the verbatim text it was read from.
@@ -16,7 +16,7 @@ def test_packet_ledger_loads_and_validates():
 
 
 def test_absent_cited_source_is_modelled_not_dropped():
-    ledger = load_ledger()
+    ledger = load_ledger("data/v1")
     absent = [s for s in ledger.sources.values() if not s.present]
     assert {s.id for s in absent} == {"S-ABS-RECOVERY", "S-ABS-RCP"}
     # and something actually leans on one of them

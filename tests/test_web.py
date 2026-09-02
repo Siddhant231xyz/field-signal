@@ -18,7 +18,7 @@ from field_signal.web import Api, payload
 def data(tmp_path_factory):
     """A copy, always. A test must never write a revision into the repo."""
     root = tmp_path_factory.mktemp("repo") / "data"
-    shutil.copytree("data", root)
+    shutil.copytree("data/v1", root / "v1")
     return root
 
 
@@ -182,3 +182,110 @@ def test_static_handler_serves_the_built_frontend(tmp_path, data):
 
     h._static("/../../etc/passwd")  # traversal falls back, never escapes
     assert b"id=app" in sent["body"]
+
+
+# --- progress -------------------------------------------------------------
+#
+# The reported bug: start a run, switch sheets, and the page comes back with no
+# file list, a dimmed drop zone and no way to tell whether anything is running.
+# Progress therefore has to live on the server, not in the component.
+
+
+@pytest.fixture
+def fresh_data(tmp_path):
+    """Function-scoped: these tests create revisions, so they cannot share the
+    module-scoped copy with each other."""
+    shutil.copytree("data/v1", tmp_path / "data" / "v1")
+    return tmp_path / "data"
+
+
+def test_progress_is_idle_before_anything_runs(fresh_data):
+    fresh = Api(data_dir=fresh_data)
+    assert fresh.progress()["phase"] == "idle"
+    assert fresh.progress()["running"] is False
+
+
+def test_progress_survives_the_request_that_started_it(fresh_data, tmp_path):
+    """Any later poll — from any tab — sees the same run."""
+    api = Api(data_dir=fresh_data)
+    upload = tmp_path / "note.txt"
+    upload.write_text("Head laid out and dimensioned.")
+
+    seen = []
+
+    def runner(inputs, output, on_line=None):
+        seen.append(api.progress()["phase"])  # visible mid-run, not only after
+        on_line("Building the image ...")
+        seen.append(api.progress()["phase"])
+        on_line("shell call 4")
+        seen.append(dict(api.progress()))
+        for name, payload in _LEDGER.items():
+            (output / name).write_text(json.dumps(payload))
+
+    api.ingest([upload], runner=runner)
+
+    assert seen[0] == "staging"
+    assert seen[1] == "building"
+    assert seen[2]["phase"] == "extracting"
+    assert seen[2]["shell_calls"] == 4
+    assert seen[2]["running"] is True
+
+    after = api.progress()
+    assert after["phase"] == "done"
+    assert after["running"] is False
+    assert after["revision"] == 2
+    assert after["files"] == 1
+
+
+def test_a_failed_run_leaves_the_reason_visible(fresh_data, tmp_path):
+    api = Api(data_dir=fresh_data)
+    upload = tmp_path / "note.txt"
+    upload.write_text("x")
+
+    def boom(inputs, output, on_line=None):
+        raise RuntimeError("Cannot connect to the Docker daemon")
+
+    with pytest.raises(Exception):
+        api.ingest([upload], runner=boom)
+    p = api.progress()
+    assert p["phase"] == "failed"
+    assert p["running"] is False
+    assert "Docker daemon" in p["error"]
+
+
+def test_merged_identities_are_reported_to_the_client(fresh_data, tmp_path):
+    """A model's parallel "Maya" must not vanish into the ledger unannounced."""
+    api = Api(data_dir=fresh_data)
+    upload = tmp_path / "note.txt"
+    upload.write_text("x")
+
+    ledger = json.loads(json.dumps(_LEDGER))
+    ledger["people.json"]["people"][0] = {
+        "id": "p_maya", "name": "Maya", "org": "Northline", "role": "PM",
+        "capabilities": ["authorize_ca118"], "capability_basis": "S-90",
+    }
+    ledger["claims.json"]["claims"][0]["stated_by"] = "p_maya"
+
+    def runner(inputs, output, on_line=None):
+        for name, payload in ledger.items():
+            (output / name).write_text(json.dumps(payload))
+
+    api.ingest([upload], runner=runner)
+    assert api.progress()["merged_people"] == {"p_maya": "maya"}
+
+
+_LEDGER = {
+    "people.json": {"people": [
+        {"id": "omar", "name": "Omar Ellis", "org": "Sentinel Fire",
+         "role": "Fire-protection foreman", "capabilities": ["clearance_confirmation"],
+         "capability_basis": "S-00"}]},
+    "sources.json": {"sources": [
+        {"id": "S-90", "file": "packet/note.txt", "type": "field note",
+         "author": "Omar Ellis", "logical_time": "2026-09-15", "locator_model": "line",
+         "limitations": [], "present": True, "revision": 0}]},
+    "claims.json": {"claims": [
+        {"id": "CL-S90-01", "source": "S-90", "locator": "line 1", "stated_by": "omar",
+         "stated_at": "2026-09-15T09:00:00", "kind": "assertion",
+         "subject": "sprinkler_head_location", "predicate": "final_layout",
+         "value": "laid_out", "support": "Head laid out and dimensioned."}]},
+}

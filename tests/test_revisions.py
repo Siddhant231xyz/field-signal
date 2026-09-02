@@ -24,7 +24,8 @@ from field_signal.model import (
 
 @pytest.fixture
 def root(tmp_path):
-    shutil.copytree("data", tmp_path / "data")
+    # Only v1 — see tests/test_agent.py for why.
+    shutil.copytree("data/v1", tmp_path / "data" / "v1")
     return tmp_path / "data"
 
 
@@ -132,3 +133,83 @@ def _rename(ledger, source_id, claim_prefix):
         new_id = f"{claim_prefix}-{i:02d}"
         claims[new_id] = replace(c, id=new_id, source=source_id, supersedes=None)
     return type(ledger)(people={}, sources=sources, claims=claims)
+
+
+# --- identity ------------------------------------------------------------
+#
+# The agent re-reads documents with no knowledge of the existing ledger, so it
+# invents its own person ids and its own capability strings. A real run
+# produced "p_maya" ("Maya") alongside "maya" ("Maya Chen"), with invented
+# capabilities like "authorize_or_withhold_ca118". That silently splits the
+# authority model: Maya's new messages get attributed to someone who does not
+# hold `authorise_added_cost`, and the money rule stops seeing them.
+
+
+def _person_ledger(people, claims):
+    from datetime import datetime
+
+    from field_signal.model import Claim, Ledger, Person, Source
+
+    return Ledger(
+        people={p["id"]: Person(**p) for p in people},
+        sources={
+            "S-99": Source("S-99", "demo/x.pdf", "export", "channel", "2026-09-15", "line")
+        },
+        claims={
+            c["id"]: Claim(
+                stated_at=datetime.fromisoformat("2026-09-15T09:00:00"),
+                source="S-99",
+                locator="line 1",
+                kind="assertion",
+                support="text",
+                **c,
+            )
+            for c in claims
+        },
+    )
+
+
+AGENT_OUTPUT = _person_ledger(
+    people=[
+        dict(id="p_maya", name="Maya", org="Northline", role="PM",
+             capabilities=("authorize_or_withhold_ca118",), capability_basis="S-99"),
+        dict(id="p_dave", name="Dave Okonkwo", org="Elsewhere", role="Inspector",
+             capabilities=("inspect",), capability_basis="S-99"),
+    ],
+    claims=[
+        dict(id="CL-N-01", stated_by="p_maya", subject="ca_118",
+             predicate="authorisation", value="not_authorised"),
+        dict(id="CL-N-02", stated_by="p_dave", subject="inspection",
+             predicate="outcome", value="passed"),
+    ],
+)
+
+
+def test_a_re_extracted_person_is_matched_to_the_existing_one(root):
+    n = create_revision(root, base=1, added=AGENT_OUTPUT)
+    v = load_revision(root, n)
+    assert "p_maya" not in v.people           # no parallel identity
+    assert v.claims["CL-N-01"].stated_by == "maya"  # remapped onto the packet's Maya
+    assert len([p for p in v.people.values() if p.name.startswith("Maya")]) == 1
+
+
+def test_the_packets_capabilities_win_over_invented_ones(root):
+    """Authority comes from the working rules, never from a model's guess."""
+    n = create_revision(root, base=1, added=AGENT_OUTPUT)
+    maya = load_revision(root, n).people["maya"]
+    assert "authorise_added_cost" in maya.capabilities
+    assert "authorize_or_withhold_ca118" not in maya.capabilities
+    assert "$2,000" in maya.capability_basis  # still cited to the primer
+
+
+def test_a_genuinely_new_person_is_kept(root):
+    n = create_revision(root, base=1, added=AGENT_OUTPUT)
+    v = load_revision(root, n)
+    assert v.people["p_dave"].name == "Dave Okonkwo"
+    assert v.claims["CL-N-02"].stated_by == "p_dave"
+
+
+def test_the_merged_identities_are_reported_not_silent(root):
+    merged = {}
+    create_revision(root, base=1, added=AGENT_OUTPUT, merged_people=merged)
+    assert merged == {"p_maya": "maya"}

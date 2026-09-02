@@ -42,6 +42,13 @@ function go(id) {
 
 window.addEventListener('hashchange', () => (active.value = fromHash()))
 
+const RUN_LABEL = {
+  staging: 'staging files',
+  building: 'building image',
+  extracting: 'reading documents',
+  writing: 'writing revision',
+}
+
 const counts = computed(() => {
   const v = view.value
   if (!v) return null
@@ -76,6 +83,21 @@ onMounted(actions.boot)
         </span>
       </div>
 
+      <button
+        v-if="store.busy"
+        class="titleblock__field titleblock__running"
+        @click="go('agent')"
+      >
+        <span class="titleblock__k">agent</span>
+        <span class="titleblock__v titleblock__v--run">
+          <span class="rail__spin" aria-hidden="true" />
+          {{ RUN_LABEL[store.progress.phase] ?? 'running' }}
+          <span v-if="store.progress.shell_calls" class="titleblock__of">
+            {{ store.progress.shell_calls }} cmds
+          </span>
+        </span>
+      </button>
+
       <div v-if="view" class="titleblock__field titleblock__field--verdict">
         <span class="titleblock__k">direction on CA-118</span>
         <span class="titleblock__v" :class="`verdict--${view.decision.recommendation.toLowerCase()}`">
@@ -106,6 +128,12 @@ onMounted(actions.boot)
           v-if="counts && s.id === 'conflicts' && counts.conflicts"
           class="rail__count rail__count--conflict"
         >{{ counts.conflicts }}</span>
+        <span
+          v-if="s.id === 'agent' && store.busy"
+          class="rail__spin"
+          role="status"
+          aria-label="The agent is running"
+        />
       </button>
 
       <p class="rail__foot">
@@ -295,6 +323,44 @@ onMounted(actions.boot)
 }
 .rail__count--conflict {
   color: var(--contested);
+}
+
+.rail__spin {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: end;
+  width: 11px;
+  height: 11px;
+  border: 2px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.titleblock__running {
+  background: none;
+  border: 0;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  text-align: left;
+  color: var(--cyan);
+}
+
+.titleblock__running:hover {
+  background: color-mix(in srgb, var(--cyan) 10%, transparent);
+}
+
+.titleblock__v--run {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cyan);
+  font-size: 15px;
 }
 
 .rail__foot {

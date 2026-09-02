@@ -229,15 +229,69 @@ def _content_key(claim: Claim) -> tuple[str, ...]:
     return (claim.source, claim.locator, claim.subject, claim.predicate, claim.value)
 
 
-def create_revision(root: str | Path, base: int, added: Ledger) -> int:
+def _same_person(a: str, b: str) -> bool:
+    """"Maya" and "Maya Chen" are one person; "Maya" and "Omar" are not.
+
+    ponytail: token-subset match. Two different people sharing a first name
+    would collide — needs an explicit identity map if that ever happens.
+    """
+    x, y = set(a.lower().split()), set(b.lower().split())
+    return bool(x) and bool(y) and (x <= y or y <= x)
+
+
+def replace_authors(added: Ledger, remap: dict[str, str]) -> Ledger:
+    """Drop the duplicate people and re-point their claims at the real ones."""
+    return Ledger(
+        people={k: v for k, v in added.people.items() if k not in remap},
+        sources=dict(added.sources),
+        claims={
+            cid: replace(c, stated_by=remap.get(c.stated_by or "", c.stated_by))
+            for cid, c in added.claims.items()
+        },
+    )
+
+
+def _resolve_people(ledger: Ledger, added: Ledger) -> dict[str, str]:
+    """Map incoming person ids onto existing ones by name. Returns the merges.
+
+    The agent re-reads documents with no knowledge of the ledger, so it invents
+    its own ids *and* its own capability strings. Left alone that splits the
+    authority model in two. The existing person always wins: capabilities are
+    read from the packet's working rules and must never come from a model.
+    """
+    merged: dict[str, str] = {}
+    for new_id, person in sorted(added.people.items()):
+        if new_id in ledger.people:
+            continue
+        for old_id, existing in sorted(ledger.people.items()):
+            if _same_person(person.name, existing.name):
+                merged[new_id] = old_id
+                break
+    return merged
+
+
+def create_revision(
+    root: str | Path,
+    base: int,
+    added: Ledger,
+    merged_people: dict[str, str] | None = None,
+) -> int:
     """Write base + added as the next free revision. Returns its number.
 
     Nothing is written unless the merged ledger validates, so a bad extraction
-    leaves the existing revisions untouched.
+    leaves the existing revisions untouched. `merged_people`, if given, is
+    filled with any incoming person id that was matched to an existing one —
+    an identity merge is never silent.
     """
     root = Path(root)
     ledger = load_revision(root, base)
     n = latest_revision(root) + 1
+
+    remap = _resolve_people(ledger, added)
+    if merged_people is not None:
+        merged_people.update(remap)
+    if remap:
+        added = replace_authors(added, remap)
 
     ledger.people.update({k: v for k, v in added.people.items() if k not in ledger.people})
     for sid, source in added.sources.items():

@@ -11,6 +11,12 @@ const state = reactive({
   revisions: {},
   created: null,
   busy: false,
+  /* Ingestion state lives here, not in AgentView. The view is destroyed when
+     you switch sheets, and a run takes minutes — losing the file list and the
+     progress on navigation is the bug this fixes. */
+  picked: [],
+  progress: { phase: 'idle', running: false, shell_calls: 0, files: 0 },
+  lastRun: null,
   fixtures: [],
   verify: null,
   moves: null,
@@ -29,6 +35,17 @@ function apply(payload) {
   state.revisions = payload.revisions
   state.ledgers = payload.ledgers
   state.created = payload.created ?? null
+}
+
+async function pollProgress() {
+  try {
+    const p = await call('/api/agent/status')
+    state.progress = p
+    if (p.running) state.busy = true
+    return p
+  } catch {
+    return null // a poll failure must never take down the page
+  }
 }
 
 export const store = readonly(state)
@@ -58,6 +75,7 @@ export const actions = {
     try {
       apply(await call('/api/state'))
       state.fixtures = await call('/api/fixtures')
+      await pollProgress() // a run may already be going when the page loads
     } catch (e) {
       state.error = e.message
     } finally {
@@ -83,25 +101,51 @@ export const actions = {
     }
   },
 
+  pick(files) {
+    const seen = new Set(state.picked.map((f) => f.name + f.size))
+    for (const f of files) if (!seen.has(f.name + f.size)) state.picked.push(f)
+  },
+
+  unpick(i) {
+    state.picked.splice(i, 1)
+  },
+
+  clearPicked() {
+    state.picked = []
+  },
+
   /* Uploads go to the agent, which reads them inside a container and writes a
      new revision branched off whichever one is selected. */
-  async ingest(files) {
+  async ingest() {
+    if (!state.picked.length || state.busy) return false
     state.error = null
     state.busy = true
+    state.lastRun = null
     const before = state.current
     const form = new FormData()
-    for (const file of files) form.append('files', file, file.name)
+    for (const file of state.picked) form.append('files', file, file.name)
+
+    const poll = setInterval(pollProgress, 1200)
     try {
       apply(await call('/api/agent', { method: 'POST', body: form }))
       state.moves = await call(`/api/diff?a=${before}&b=${state.current}`)
+      state.lastRun = { base: before, revision: state.current, ok: true }
+      state.picked = []
       return true
     } catch (e) {
       state.error = e.message
+      state.lastRun = { base: before, ok: false, error: e.message }
       return false
     } finally {
+      clearInterval(poll)
       state.busy = false
+      await pollProgress()
     }
   },
+
+  /* Called on boot and whenever the agent sheet mounts, so a run started in
+     another tab — or before a reload — is still visible. */
+  refreshProgress: pollProgress,
 
   async select(n) {
     state.error = null
