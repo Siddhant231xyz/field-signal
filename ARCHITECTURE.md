@@ -12,6 +12,8 @@ model.py           typed nodes, schema validation, revision slicing
    │
 rules.py           condition rules — pure functions, no I/O
 graph.py           queues, topological derivation, taint propagation
+   │
+diff.py            conclusions(a) vs conclusions(b)
 ```
 
 `rules.py` and `graph.py` import nothing from a renderer and perform no I/O.
@@ -93,6 +95,18 @@ Typed evidence nodes and validation. Knows what a claim *is*; derives nothing.
   it. Also carries `rebuttals` (refuted claim → refuting claims) and
   `absent_bases` (absent source → claims leaning on it).
 
+### `field_signal/diff.py`
+
+`diff(a, b) -> tuple[Movement, ...]`, where `Movement(kind, id, before, after,
+note)`. Kinds: `condition_status`, `condition_basis`, `condition_added`,
+`condition_removed`, `support_added`, `unknown_opened`, `unknown_closed`,
+`queue_mode`, `queue_head`, `queue_added`, `superseded`, `recommendation`,
+`blocking_changed`, `decision_basis`.
+
+`support_added` reports new evidence that bears on a conclusion **without**
+changing it — the case that is easy to miss and easy to fake. Nothing that did
+not move is reported.
+
 ## Data
 
 - `data/people.json` — 7 people, capability sets, each cited to S-00.
@@ -136,5 +150,12 @@ source); a revision slice excludes later sources.
 | `dependency_taint_reaches_a_dependent_condition` | the deadlock is modelled |
 | `excluded_scope_keeps_cost_unknown` | $2,850 is not the exposure |
 | `determinism_under_input_permutation` | **shuffle input, identical output** |
+
+`tests/test_diff.py` — identical revisions produce no movement; only changed
+conditions are reported (the fire-protection question does not move and is not
+reported as if it did); the fixture opens a question that did not previously
+exist; supersession names both claims and keeps the loser readable; the
+recommendation stays `HOLD` for a different set of reasons; new evidence on an
+unchanged conclusion is still surfaced.
 
 Run: `.venv/bin/python -m pytest tests -q`
