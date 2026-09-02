@@ -1,0 +1,466 @@
+{
+  "claims": [
+    {
+      "id": "CL-S00-01", "source": "S-00", "locator": "Working rules supplied to the project team",
+      "stated_by": null, "stated_at": "2026-09-14T00:00:00", "kind": "assertion",
+      "subject": "authority_rules", "predicate": "cost_threshold", "value": "maya_written_authorisation_above_2000",
+      "support": "Maya issues contractual direction to subcontractors. Added cost above $2,000 requires Maya’s written authorisation before Northline treats it as approved."
+    },
+    {
+      "id": "CL-S00-02", "source": "S-00", "locator": "Working rules supplied to the project team",
+      "stated_by": null, "stated_at": "2026-09-14T00:00:00", "kind": "assertion",
+      "subject": "authority_rules", "predicate": "luis_remit", "value": "no_added_cost_approval",
+      "support": "Luis coordinates field sequence but does not approve added subcontract cost."
+    },
+    {
+      "id": "CL-S00-03", "source": "S-00", "locator": "Working rules supplied to the project team",
+      "stated_by": null, "stated_at": "2026-09-14T00:00:00", "kind": "assertion",
+      "subject": "authority_rules", "predicate": "tasha_remit", "value": "no_subcontractor_change_authority",
+      "support": "Tasha can confirm owner preferences, but she does not directly authorise subcontractor changes."
+    },
+    {
+      "id": "CL-S00-04", "source": "S-00", "locator": "Working rules supplied to the project team",
+      "stated_by": null, "stated_at": "2026-09-14T00:00:00", "kind": "assertion",
+      "subject": "authority_rules", "predicate": "priya_remit", "value": "design_only_not_pricing",
+      "support": "Priya can confirm design acceptability; she does not approve contractor pricing."
+    },
+    {
+      "id": "CL-S00-05", "source": "S-00", "locator": "Working rules supplied to the project team",
+      "stated_by": null, "stated_at": "2026-09-14T00:00:00", "kind": "assertion",
+      "subject": "authority_rules", "predicate": "verbal_direction", "value": "safety_or_immediate_damage_only",
+      "support": "Verbal direction may be used to protect safety or prevent immediate damage. Otherwise, cost and scope changes should be documented before proceeding."
+    },
+    {
+      "id": "CL-S00-06", "source": "S-00", "locator": "Project and current phase",
+      "stated_by": null, "stated_at": "2026-09-14T00:00:00", "kind": "assertion",
+      "subject": "north_soffit", "predicate": "congestion", "value": "congested_zone",
+      "support": "The north service-counter soffit contains HVAC branches, sprinkler piping, lighting and access panels in a congested zone."
+    },
+    {
+      "id": "CL-S00-07", "source": "S-00", "locator": "Project and current phase",
+      "stated_by": null, "stated_at": "2026-09-14T00:00:00", "kind": "plan",
+      "subject": "project_milestones", "predicate": "opening_targets", "value": "training_2026-10-05_opening_2026-10-12",
+      "support": "The owner targets staff training on 5 October and public opening on 12 October."
+    },
+
+    {
+      "id": "CL-S01-01", "source": "S-01", "locator": "08:05:12",
+      "stated_by": "luis", "stated_at": "2026-09-14T08:05:12", "kind": "plan",
+      "subject": "above_ceiling_inspection", "predicate": "date", "value": "thursday_morning",
+      "support": "Above-ceiling inspection is Thursday morning, then board Friday if we are clean."
+    },
+    {
+      "id": "CL-S01-02", "source": "S-01", "locator": "08:05:34",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:05:34", "kind": "assertion",
+      "subject": "duct_sprinkler_clash", "predicate": "clash_exists", "value": "yes",
+      "support": "The supply branch still lands right where Omar wants the head."
+    },
+    {
+      "id": "CL-S01-03", "source": "S-01", "locator": "08:05:34",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:05:34", "kind": "assertion",
+      "subject": "diffuser_relocation", "predicate": "prior_coordination", "value": "discussed_last_week",
+      "support": "I can kick the diffuser toward the column. We talked about it last week."
+    },
+    {
+      "id": "CL-S01-04", "source": "S-01", "locator": "08:05:52",
+      "stated_by": "omar", "stated_at": "2026-09-14T08:05:52", "kind": "assertion",
+      "subject": "sprinkler_clearance", "predicate": "room_requested", "value": "requested",
+      "support": "I said I needed room."
+    },
+    {
+      "id": "CL-S01-05", "source": "S-01", "locator": "08:05:52",
+      "stated_by": "omar", "stated_at": "2026-09-14T08:05:52", "kind": "assertion",
+      "subject": "sprinkler_head_location", "predicate": "final_layout", "value": "not_laid_out",
+      "refutes": "CL-S01-03",
+      "support": "I did not lay out the final head."
+    },
+    {
+      "id": "CL-S01-06", "source": "S-01", "locator": "08:05:52",
+      "stated_by": "omar", "stated_at": "2026-09-14T08:05:52", "kind": "assertion",
+      "subject": "sprinkler_head_location", "predicate": "blocked_by", "value": "access_panel_location",
+      "support": "I need to see where the access panel ends up."
+    },
+    {
+      "id": "CL-S01-07", "source": "S-01", "locator": "08:06:17",
+      "stated_by": "luis", "stated_at": "2026-09-14T08:06:17", "kind": "assertion",
+      "subject": "architect_sketch", "predicate": "received", "value": "not_yet",
+      "support": "Not yet. I sent the marked-up photo Friday."
+    },
+    {
+      "id": "CL-S01-08", "source": "S-01", "locator": "08:06:28",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:06:28", "kind": "assertion",
+      "subject": "duct_branch_position", "predicate": "moved", "value": "shifted_yesterday",
+      "support": "My guys shifted the branch yesterday so drywall could keep framing."
+    },
+    {
+      "id": "CL-S01-09", "source": "S-01", "locator": "08:06:28",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:06:28", "kind": "assertion",
+      "subject": "duct_branch_position", "predicate": "reversibility", "value": "hung_loose",
+      "support": "It is hung loose until we know."
+    },
+    {
+      "id": "CL-S01-10", "source": "S-01", "locator": "08:06:50",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:06:50", "kind": "assertion",
+      "subject": "duct_branch_position", "predicate": "reversibility", "value": "reversible_no_ceiling_cut",
+      "support": "Just the branch and flex, reversible. No ceiling cut."
+    },
+    {
+      "id": "CL-S01-11", "source": "S-01", "locator": "08:06:50",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:06:50", "kind": "estimate",
+      "subject": "ca_118", "predicate": "labour_duration", "value": "two guys, most of a day",
+      "support": "Two guys, most of a day once we finish it."
+    },
+    {
+      "id": "CL-S01-12", "source": "S-01", "locator": "08:07:08",
+      "stated_by": "tasha", "stated_at": "2026-09-14T08:07:08", "kind": "assertion",
+      "subject": "ca_118", "predicate": "owner_preference", "value": "keep_moving_if_under_three_grand",
+      "support": "If it keeps the October opening and it is under three grand, I would rather keep moving than hold the ceiling."
+    },
+    {
+      "id": "CL-S01-13", "source": "S-01", "locator": "08:07:21",
+      "stated_by": "maya", "stated_at": "2026-09-14T08:07:21", "kind": "assertion",
+      "subject": "ca_118", "predicate": "authorisation", "value": "not_authorised",
+      "support": "I need to see the number, and Priya still needs to confirm the location."
+    },
+    {
+      "id": "CL-S01-14", "source": "S-01", "locator": "08:07:42",
+      "stated_by": "luis", "stated_at": "2026-09-14T08:07:42", "kind": "intent",
+      "subject": "ca_118", "predicate": "proceed_pending_paperwork_requested", "value": "requested",
+      "support": "Can we call it proceed pending paperwork? We cannot lose Friday."
+    },
+    {
+      "id": "CL-S01-15", "source": "S-01", "locator": "08:07:50",
+      "stated_by": "maya", "stated_at": "2026-09-14T08:07:50", "kind": "assertion",
+      "subject": "field_direction", "predicate": "standing_direction", "value": "hold_final_connection",
+      "support": "Hold final connection. Get Priya and Omar looking at the same condition today. Framing can continue outside that bay."
+    },
+    {
+      "id": "CL-S01-16", "source": "S-01", "locator": "08:08:15",
+      "stated_by": "omar", "stated_at": "2026-09-14T08:08:15", "kind": "estimate",
+      "subject": "sprinkler_clearance", "predicate": "assessment", "value": "tight, maybe okay, maybe not",
+      "cites_basis": "P-01",
+      "support": "If the branch stays where it is in Luis’s photo, the head is tight. Maybe okay, maybe not."
+    },
+    {
+      "id": "CL-S01-17", "source": "S-01", "locator": "08:08:41",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:08:41", "kind": "assertion",
+      "subject": "luis_marked_photo", "predicate": "currency", "value": "stale",
+      "refutes": "CL-S01-16",
+      "support": "The photo is old."
+    },
+    {
+      "id": "CL-S01-18", "source": "S-01", "locator": "08:08:41",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:08:41", "kind": "estimate",
+      "subject": "duct_offset_west", "predicate": "distance", "value": "six or eight inches",
+      "support": "It is six or eight inches west now."
+    },
+    {
+      "id": "CL-S01-19", "source": "S-01", "locator": "08:09:03",
+      "stated_by": "luis", "stated_at": "2026-09-14T08:09:03", "kind": "assertion",
+      "subject": "curved_booth_delivery", "predicate": "date", "value": "tuesday_or_thursday_heard",
+      "support": "Next: booths. Nina, I heard Tuesday, then I heard Thursday."
+    },
+    {
+      "id": "CL-S01-20", "source": "S-01", "locator": "08:09:18",
+      "stated_by": "nina", "stated_at": "2026-09-14T08:09:18", "kind": "assertion",
+      "subject": "counter_crates_delivery", "predicate": "date", "value": "tuesday",
+      "support": "The counter crates arrive Tuesday."
+    },
+    {
+      "id": "CL-S01-21", "source": "S-01", "locator": "08:09:18",
+      "stated_by": "nina", "stated_at": "2026-09-14T08:09:18", "kind": "assertion",
+      "subject": "curved_booth_delivery", "predicate": "delay_status", "value": "not_a_new_delay",
+      "cites_basis": "S-ABS-RECOVERY",
+      "support": "That is not a new delay; the approved recovery schedule split the shipment."
+    },
+    {
+      "id": "CL-S01-22", "source": "S-01", "locator": "08:09:35",
+      "stated_by": "tasha", "stated_at": "2026-09-14T08:09:35", "kind": "assertion",
+      "subject": "training_room", "predicate": "owner_priority", "value": "usable_by_the_fifth",
+      "support": "I only care that the training room is usable by the fifth."
+    },
+    {
+      "id": "CL-S01-23", "source": "S-01", "locator": "08:09:43",
+      "stated_by": "maya", "stated_at": "2026-09-14T08:09:43", "kind": "assertion",
+      "subject": "training_room", "predicate": "critical_path", "value": "floor_finish_not_booth",
+      "support": "The booth does not control training, but floor finish does. Luis, keep the crate route clear."
+    },
+    {
+      "id": "CL-S01-24", "source": "S-01", "locator": "08:10:07",
+      "stated_by": "luis", "stated_at": "2026-09-14T08:10:07", "kind": "assertion",
+      "subject": "soffit_release", "predicate": "painting_request", "value": "released_tomorrow_to_keep_friday",
+      "support": "Painting says they need the soffit released tomorrow to keep Friday."
+    },
+    {
+      "id": "CL-S01-25", "source": "S-01", "locator": "08:10:31",
+      "stated_by": "maya", "stated_at": "2026-09-14T08:10:31", "kind": "assertion",
+      "subject": "soffit_release", "predicate": "decision", "value": "refused_inspection_thursday",
+      "support": "Inspection is Thursday, so painting cannot have the closed soffit tomorrow. They can prep elsewhere."
+    },
+    {
+      "id": "CL-S01-26", "source": "S-01", "locator": "08:11:02",
+      "stated_by": null, "stated_at": "2026-09-14T08:11:02", "kind": "unintelligible",
+      "subject": "unrecovered_fragment_0811", "predicate": "fragment", "value": "[compressor noise] … access … twenty-four … north …",
+      "support": "[compressor noise] … access … twenty-four … north …"
+    },
+    {
+      "id": "CL-S01-27", "source": "S-01", "locator": "08:11:26",
+      "stated_by": "luis", "stated_at": "2026-09-14T08:11:26", "kind": "assertion",
+      "subject": "field_direction", "predicate": "standing_direction", "value": "no_final_connection_no_board",
+      "support": "One o’clock field review, no final duct connection, no board in that bay."
+    },
+    {
+      "id": "CL-S01-28", "source": "S-01", "locator": "08:11:41",
+      "stated_by": "ben", "stated_at": "2026-09-14T08:11:41", "kind": "assertion",
+      "subject": "crew_availability", "predicate": "answer_deadline", "value": "today",
+      "support": "If we are holding my crew, I need an answer today."
+    },
+    {
+      "id": "CL-S01-29", "source": "S-01", "locator": "08:12:03",
+      "stated_by": "maya", "stated_at": "2026-09-14T08:12:03", "kind": "intent",
+      "subject": "ca_118", "predicate": "resubmission_requested", "value": "with_inclusions_and_exclusions",
+      "support": "Understood. Send the quote again with what is included and excluded."
+    },
+    {
+      "id": "CL-S01-30", "source": "S-01", "locator": "08:12:19",
+      "stated_by": "tasha", "stated_at": "2026-09-14T08:12:19", "kind": "assertion",
+      "subject": "ca_118", "predicate": "owner_cost_belief", "value": "a two-thousand-dollar issue",
+      "support": "And please do not let a two-thousand-dollar issue turn into a two-week issue."
+    },
+
+    {
+      "id": "CL-S02-01", "source": "S-02", "locator": "Luis → Priya, Maya · Fri 11 Sep, 15:48",
+      "stated_by": "luis", "stated_at": "2026-09-11T15:48:00", "kind": "assertion",
+      "subject": "duct_sprinkler_clash", "predicate": "clash_exists", "value": "yes",
+      "support": "North soffit clash. Cascade diffuser branch and sprinkler head want same bay."
+    },
+    {
+      "id": "CL-S02-02", "source": "S-02", "locator": "Luis → Priya, Maya · Fri 11 Sep, 15:48",
+      "stated_by": "luis", "stated_at": "2026-09-11T15:48:00", "kind": "assertion",
+      "subject": "diffuser_relocation", "predicate": "architect_confirmation_requested", "value": "requested_2026-09-11",
+      "support": "Can you confirm whether diffuser may shift toward column? Need answer before close-in."
+    },
+    {
+      "id": "CL-S02-03", "source": "S-02", "locator": "Priya → Luis, Maya · Fri 11 Sep, 16:06",
+      "stated_by": "priya", "stated_at": "2026-09-11T16:06:00", "kind": "intent",
+      "subject": "diffuser_relocation", "predicate": "design_acceptance", "value": "review_intended_monday_morning",
+      "support": "I can review Monday morning."
+    },
+    {
+      "id": "CL-S02-04", "source": "S-02", "locator": "Priya → Luis, Maya · Fri 11 Sep, 16:06",
+      "stated_by": "priya", "stated_at": "2026-09-11T16:06:00", "kind": "assertion",
+      "subject": "access_panel_location", "predicate": "fixed_location", "value": "not_yet_proposed",
+      "support": "Please include proposed access-panel location;"
+    },
+    {
+      "id": "CL-S02-05", "source": "S-02", "locator": "Priya → Luis, Maya · Fri 11 Sep, 16:06",
+      "stated_by": "priya", "stated_at": "2026-09-11T16:06:00", "kind": "assertion",
+      "subject": "access_panel_location", "predicate": "drawing_shows", "value": "centred_between_lights",
+      "cites_basis": "S-ABS-RCP",
+      "support": "reflected ceiling plan shows it centred between\nlights."
+    },
+    {
+      "id": "CL-S02-06", "source": "S-02", "locator": "Ben → Luis · Sun 13 Sep, 10:14",
+      "stated_by": "ben", "stated_at": "2026-09-13T10:14:00", "kind": "assertion",
+      "subject": "duct_branch_position", "predicate": "moved", "value": "moved_west_2026-09-13",
+      "support": "We moved the loose flex/branch west so framing could finish."
+    },
+    {
+      "id": "CL-S02-07", "source": "S-02", "locator": "Ben → Luis · Sun 13 Sep, 10:14",
+      "stated_by": "ben", "stated_at": "2026-09-13T10:14:00", "kind": "estimate",
+      "subject": "duct_offset_west", "predicate": "distance", "value": "about 6 in",
+      "support": "About 6 in from\nold spot."
+    },
+    {
+      "id": "CL-S02-08", "source": "S-02", "locator": "Ben → Luis · Sun 13 Sep, 10:14",
+      "stated_by": "ben", "stated_at": "2026-09-13T10:14:00", "kind": "assertion",
+      "subject": "duct_branch_position", "predicate": "reversibility", "value": "reversible",
+      "support": "No final tap or diffuser."
+    },
+    {
+      "id": "CL-S02-09", "source": "S-02", "locator": "Luis → Ben · Sun 13 Sep, 10:31",
+      "stated_by": "luis", "stated_at": "2026-09-13T10:31:00", "kind": "assertion",
+      "subject": "field_direction", "predicate": "close_in_hold", "value": "leave_open_do_not_cover",
+      "support": "Saw it. Leave open and photograph. Do not cover. Maya needs quote."
+    },
+    {
+      "id": "CL-S02-10", "source": "S-02", "locator": "Ben → Maya, Luis · Mon 14 Sep, 07:12",
+      "stated_by": "ben", "stated_at": "2026-09-14T07:12:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "quoted_amount", "value": "2850.00",
+      "support": "Quote CA-118 sent again. $2,850."
+    },
+    {
+      "id": "CL-S02-11", "source": "S-02", "locator": "Ben → Maya, Luis · Mon 14 Sep, 07:12",
+      "stated_by": "ben", "stated_at": "2026-09-14T07:12:00", "kind": "assertion",
+      "subject": "crew_availability", "predicate": "answer_deadline", "value": "today_to_keep_tuesday_crew",
+      "support": "Need direction today to keep crew Tuesday."
+    },
+    {
+      "id": "CL-S02-12", "source": "S-02", "locator": "Maya → Ben, Luis · Mon 14 Sep, 07:26",
+      "stated_by": "maya", "stated_at": "2026-09-14T07:26:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "authorisation", "value": "not_authorised",
+      "support": "Received. We need architect and fire-protection review of the current condition. Ben, keep it reversible."
+    },
+    {
+      "id": "CL-S02-13", "source": "S-02", "locator": "Tasha → Maya · Mon 14 Sep, 09:02",
+      "stated_by": "tasha", "stated_at": "2026-09-14T09:02:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "owner_preference", "value": "comfortable_with_small_field_fix",
+      "support": "I am comfortable with a small field fix if your team confirms it is the cleanest route."
+    },
+    {
+      "id": "CL-S02-14", "source": "S-02", "locator": "Maya → Tasha · Mon 14 Sep, 09:17",
+      "stated_by": "maya", "stated_at": "2026-09-14T09:17:00", "kind": "intent",
+      "subject": "ca_118", "predicate": "next_direction", "value": "after_field_review",
+      "support": "Understood. I will coordinate the next direction after the field review."
+    },
+    {
+      "id": "CL-S02-15", "source": "S-02", "locator": "Nina → Luis, Maya · Mon 14 Sep, 11:38",
+      "stated_by": "nina", "stated_at": "2026-09-14T11:38:00", "kind": "assertion",
+      "subject": "curved_booth_delivery", "predicate": "date", "value": "2026-09-17",
+      "cites_basis": "S-ABS-RECOVERY", "supersedes": "CL-S01-19",
+      "support": "Confirming split delivery per recovery schedule: counter crates Tues 15 Sep; curved booth Thurs 17 Sep."
+    },
+    {
+      "id": "CL-S02-16", "source": "S-02", "locator": "Luis → Project channel · Mon 14 Sep, 12:22",
+      "stated_by": "luis", "stated_at": "2026-09-14T12:22:00", "kind": "plan",
+      "subject": "field_review", "predicate": "scheduled", "value": "2026-09-14T13:00 · Priya / Omar / Ben",
+      "support": "1:00 field review at north soffit: Priya / Omar / Ben."
+    },
+    {
+      "id": "CL-S02-17", "source": "S-02", "locator": "Luis → Project channel · Mon 14 Sep, 12:22",
+      "stated_by": "luis", "stated_at": "2026-09-14T12:22:00", "kind": "assertion",
+      "subject": "field_direction", "predicate": "standing_direction", "value": "no_final_connection_no_board",
+      "support": "Current direction remains no final duct connection and no board in affected\nbay."
+    },
+
+    {
+      "id": "CL-S03-01", "source": "S-03", "locator": "row A110",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:00:00", "kind": "assertion",
+      "subject": "mep_coordination", "predicate": "status_at_export", "value": "Open: HVAC / sprinkler interface",
+      "support": "A110 | MEP overhead coordination | North soffit | 2026-09-08 | 2026-09-14 | All trades confirm routing | Open: HVAC / sprinkler interface | Luis"
+    },
+    {
+      "id": "CL-S03-02", "source": "S-03", "locator": "row A120",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:00:00", "kind": "plan",
+      "subject": "above_ceiling_inspection", "predicate": "date", "value": "2026-09-17",
+      "support": "A120 | Above-ceiling inspection | North soffit | 2026-09-17 | 2026-09-17 | A110 complete; work exposed | Booked | Luis"
+    },
+    {
+      "id": "CL-S03-03", "source": "S-03", "locator": "row A130",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:00:00", "kind": "plan",
+      "subject": "soffit_close_in", "predicate": "date", "value": "2026-09-18",
+      "support": "A130 | Soffit gypsum close-in | North soffit | 2026-09-18 | 2026-09-18 | A120 passed | Planned | Drywall"
+    },
+    {
+      "id": "CL-S03-04", "source": "S-03", "locator": "row A140",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:00:00", "kind": "plan",
+      "subject": "soffit_paint", "predicate": "date", "value": "2026-09-21/2026-09-22",
+      "support": "A140 | Soffit prime / first coat | North soffit | 2026-09-21 | 2026-09-22 | A130 complete and dry | Planned | Painting"
+    },
+    {
+      "id": "CL-S03-05", "source": "S-03", "locator": "row M210",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:00:00", "kind": "plan",
+      "subject": "counter_crates_delivery", "predicate": "date", "value": "2026-09-15",
+      "support": "M210 | Counter crates delivery | Service counter | 2026-09-15 | 2026-09-15 | Clear delivery route | Confirmed | Nina"
+    },
+    {
+      "id": "CL-S03-06", "source": "S-03", "locator": "row M220",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:00:00", "kind": "plan",
+      "subject": "curved_booth_delivery", "predicate": "date", "value": "2026-09-17",
+      "support": "M220 | Curved booth delivery | Dining area | 2026-09-17 | 2026-09-17 | Floor protected; route clear | Confirmed per recovery plan | Nina"
+    },
+    {
+      "id": "CL-S03-07", "source": "S-03", "locator": "row C420",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:00:00", "kind": "plan",
+      "subject": "project_milestones", "predicate": "public_opening", "value": "2026-10-12",
+      "support": "C420 | Public opening | Whole café | 2026-10-12 | 2026-10-12 | Final approvals | Milestone | Tasha"
+    },
+    {
+      "id": "CL-S03-08", "source": "S-03", "locator": "source note row",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:00:00", "kind": "assertion",
+      "subject": "schedule_semantics", "predicate": "limitation", "value": "dates_are_plan_not_proof",
+      "support": "Lookahead exported by Luis Ortega on 14 Sep 2026 at 07:00. Dates are working-plan dates, not proof that work occurred."
+    },
+
+    {
+      "id": "CL-S04-01", "source": "S-04", "locator": "Pricing · Total proposed change",
+      "stated_by": "ben", "stated_at": "2026-09-13T00:00:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "quoted_amount", "value": "2850.00",
+      "support": "Total proposed change $2,850.00"
+    },
+    {
+      "id": "CL-S04-02", "source": "S-04", "locator": "Proposed scope · bullet 1",
+      "stated_by": "ben", "stated_at": "2026-09-13T00:00:00", "kind": "estimate",
+      "subject": "duct_offset_west", "predicate": "distance", "value": "approximately 6–12 inches",
+      "support": "Relocate one 8-inch supply branch and flexible duct approximately 6–12 inches west."
+    },
+    {
+      "id": "CL-S04-03", "source": "S-04", "locator": "Exclusions and assumptions",
+      "stated_by": "ben", "stated_at": "2026-09-13T00:00:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "exclusions", "value": "drywall_paint_grid; fire_protection_rework; redesign_and_permit; access_and_hours_assumption; schedule_impact_beyond_one_day",
+      "support": "Drywall patching, painting and ceiling-grid changes are excluded."
+    },
+    {
+      "id": "CL-S04-04", "source": "S-04", "locator": "Exclusions and assumptions",
+      "stated_by": "ben", "stated_at": "2026-09-13T00:00:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "excludes_fire_protection", "value": "excluded",
+      "support": "Fire-protection relocation or rework is excluded."
+    },
+    {
+      "id": "CL-S04-05", "source": "S-04", "locator": "Exclusions and assumptions",
+      "stated_by": "ben", "stated_at": "2026-09-13T00:00:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "excludes_redesign", "value": "excluded",
+      "support": "Architectural redesign and permit revision are excluded."
+    },
+    {
+      "id": "CL-S04-06", "source": "S-04", "locator": "STATUS line",
+      "stated_by": "ben", "stated_at": "2026-09-13T00:00:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "authorisation", "value": "not_authorised",
+      "support": "STATUS: PRICING SUBMITTED — NOT AUTHORISED"
+    },
+    {
+      "id": "CL-S04-07", "source": "S-04", "locator": "STATUS line",
+      "stated_by": "ben", "stated_at": "2026-09-13T00:00:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "signature", "value": "none_on_supplied_copy",
+      "support": "No signature appears on the supplied copy."
+    },
+    {
+      "id": "CL-S04-08", "source": "S-04", "locator": "Field / Value · Schedule",
+      "stated_by": "ben", "stated_at": "2026-09-13T00:00:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "start_precondition", "value": "written_direction_and_design_location_confirmation",
+      "support": "One working day after written direction and design-location confirmation"
+    },
+
+    {
+      "id": "CL-PREG-01", "source": "P-REG", "locator": "register row P-02",
+      "stated_by": "ben", "stated_at": "2026-09-14T10:18:00", "kind": "caption",
+      "subject": "duct_branch_position", "predicate": "submitter_caption", "value": "current temporary branch position; final connection open",
+      "support": "P-02 14 Sep 10:18 Ben Walker North soffit — current temporary branch position; final connection open"
+    },
+    {
+      "id": "CL-PREG-02", "source": "P-REG", "locator": "register row P-01",
+      "stated_by": "luis", "stated_at": "2026-09-14T07:42:00", "kind": "caption",
+      "subject": "north_soffit", "predicate": "submitter_caption", "value": "general overhead condition before huddle",
+      "support": "P-01 14 Sep 07:42 Luis Ortega North counter — general overhead condition before huddle"
+    },
+    {
+      "id": "CL-PREG-03", "source": "P-REG", "locator": "caption note",
+      "stated_by": null, "stated_at": "2026-09-14T00:00:00", "kind": "assertion",
+      "subject": "photo_semantics", "predicate": "limitation", "value": "captions_are_submitter_statements",
+      "support": "The captions are statements by the submitter, not independent verification of everything visible or implied."
+    },
+
+    {
+      "id": "CL-P02-01", "source": "P-02", "locator": "P-02 · centre frame, flexible duct run",
+      "stated_by": "ben", "stated_at": "2026-09-14T10:18:00", "kind": "observation",
+      "subject": "duct_branch_position", "predicate": "visible_state", "value": "flexible duct hung from a strap, open end unterminated, no diffuser fitted",
+      "support": "[image observation — not text; see P-02 centre frame]"
+    },
+    {
+      "id": "CL-P02-02", "source": "P-02", "locator": "P-02 · whole frame",
+      "stated_by": "ben", "stated_at": "2026-09-14T10:18:00", "kind": "observation",
+      "subject": "duct_offset_west", "predicate": "measurability", "value": "no scale reference, tape or datum visible in frame",
+      "support": "[image observation — not text; see P-02 whole frame]"
+    }
+  ]
+}

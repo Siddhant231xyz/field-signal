@@ -1,0 +1,133 @@
+{
+  "sources": [
+    {
+      "id": "S-00",
+      "file": "packet/01_Project_Primer.pdf",
+      "type": "project primer",
+      "author": "Project record (Northline Builders)",
+      "logical_time": "2026-09-14",
+      "locator_model": "page/section",
+      "limitations": ["States the working rules the team was given; it is not a record of any decision actually taken."],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-01",
+      "file": "packet/02_Site_Huddle_Transcript.pdf",
+      "type": "rough transcript",
+      "author": "Automated transcription service",
+      "logical_time": "2026-09-14T08:05",
+      "locator_model": "timestamp",
+      "limitations": [
+        "Automated rough transcript; lightly speaker-labelled.",
+        "Phone recording; machinery noise around 08:11–08:13.",
+        "\"Bracketed text was inserted by the transcription service where speech was not intelligible.\""
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-02",
+      "file": "packet/03_Project_Message_Thread.pdf",
+      "type": "message export",
+      "author": "Project messaging channel export",
+      "logical_time": "2026-09-11/2026-09-14",
+      "locator_model": "message timestamp",
+      "limitations": ["Export shows sent messages only; it does not show whether a message was read or acted on."],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-03",
+      "file": "packet/04_Three-Week_Schedule_Excerpt.xlsx",
+      "type": "schedule workbook",
+      "author": "Luis Ortega",
+      "logical_time": "2026-09-14T07:00",
+      "locator_model": "activity ID / workbook row",
+      "limitations": ["\"Dates are working-plan dates, not proof that work occurred.\" (source note row)"],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-04",
+      "file": "packet/05_HVAC_Change_Quote_CA-118.pdf",
+      "type": "subcontractor quotation",
+      "author": "Cascade Air",
+      "logical_time": "2026-09-13",
+      "locator_model": "section / line item",
+      "limitations": [
+        "\"STATUS: PRICING SUBMITTED — NOT AUTHORISED\"",
+        "\"No signature appears on the supplied copy.\"",
+        "Price is bounded by five stated exclusions; it is not the project's exposure."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "P-REG",
+      "file": "packet/06_Site_Photos/06_Photo_Register.pdf",
+      "type": "photo register",
+      "author": "Photo register (provenance and submitter captions)",
+      "logical_time": "2026-09-14",
+      "locator_model": "register row",
+      "limitations": ["\"The captions are statements by the submitter, not independent verification of everything visible or implied.\""],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "P-01",
+      "file": "packet/06_Site_Photos/P-01_North-Counter_Wide_2026-09-14_0742.png",
+      "type": "site photograph",
+      "author": "Luis Ortega",
+      "logical_time": "2026-09-14T07:42",
+      "locator_model": "image ID + region/crop",
+      "limitations": ["AI-generated fictional evidence.", "\"Do not infer intent, authority, completion, exact dimensions or code compliance from the image alone.\""],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "P-02",
+      "file": "packet/06_Site_Photos/P-02_North-Soffit_Close_2026-09-14_1018.png",
+      "type": "site photograph",
+      "author": "Ben Walker",
+      "logical_time": "2026-09-14T10:18",
+      "locator_model": "image ID + region/crop",
+      "limitations": ["AI-generated fictional evidence.", "\"Do not infer intent, authority, completion, exact dimensions or code compliance from the image alone.\""],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "P-03",
+      "file": "packet/06_Site_Photos/P-03_Dining-Area_Wide_2026-09-14_1436.png",
+      "type": "site photograph",
+      "author": "Luis Ortega",
+      "logical_time": "2026-09-14T14:36",
+      "locator_model": "image ID + region/crop",
+      "limitations": ["AI-generated fictional evidence.", "\"Do not infer intent, authority, completion, exact dimensions or code compliance from the image alone.\""],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-ABS-RECOVERY",
+      "file": null,
+      "type": "cited but not supplied",
+      "author": "unknown",
+      "logical_time": "unknown",
+      "locator_model": "none — document absent",
+      "limitations": ["Cited by Nina Alvarez (S-01 08:09:18, S-02 Mon 11:38) as \"the approved recovery schedule\". Not present in the packet, so nothing that leans on it can be checked."],
+      "present": false,
+      "revision": 0
+    },
+    {
+      "id": "S-ABS-RCP",
+      "file": null,
+      "type": "cited but not supplied",
+      "author": "Atelier North",
+      "logical_time": "unknown",
+      "locator_model": "none — document absent",
+      "limitations": ["Cited by Priya Shah (S-02 Fri 16:06) as the reflected ceiling plan showing the access panel \"centred between lights\". Not present in the packet."],
+      "present": false,
+      "revision": 0
+    }
+  ]
+}

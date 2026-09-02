@@ -1,0 +1,54 @@
+{
+  "_note": "DEMO FIXTURE — not supplied packet evidence. Invented for the review rehearsal so the 'evidence changed → here is what moved' behaviour can be shown. It is deliberately messy: it settles two questions, opens one, and leaves the recommendation at HOLD for a different reason.",
+  "sources": [
+    {
+      "id": "S-05",
+      "file": "demo/rfi-04.json",
+      "type": "architect RFI response (DEMO FIXTURE — not packet evidence)",
+      "author": "Priya Shah",
+      "logical_time": "2026-09-14T15:40",
+      "locator_model": "RFI number / paragraph",
+      "limitations": [
+        "Fabricated for the demonstration. It is not part of the supplied packet and must not be read as a project fact.",
+        "Confirms design acceptability only; it is silent on pricing and on fire-protection sign-off."
+      ],
+      "present": true
+    }
+  ],
+  "claims": [
+    {
+      "id": "CL-S05-01", "source": "S-05", "locator": "RFI-04 · para 1",
+      "stated_by": "priya", "stated_at": "2026-09-14T15:40:00", "kind": "assertion",
+      "subject": "diffuser_relocation", "predicate": "design_acceptance",
+      "value": "permitted_subject_to_panel_location_and_clearance",
+      "supersedes": "CL-S02-03",
+      "support": "The supply branch and diffuser may shift west of the original location, subject to the access-panel location fixed below and the clearance noted in para 3."
+    },
+    {
+      "id": "CL-S05-02", "source": "S-05", "locator": "RFI-04 · para 2",
+      "stated_by": "priya", "stated_at": "2026-09-14T15:40:00", "kind": "assertion",
+      "subject": "access_panel_location", "predicate": "fixed_location",
+      "value": "centred between the two downlights per RCP, east edge of the affected bay",
+      "supersedes": "CL-S02-04",
+      "support": "Access panel is fixed at the reflected-ceiling-plan position: centred between the two downlights, east edge of the affected bay."
+    },
+    {
+      "id": "CL-S05-03", "source": "S-05", "locator": "RFI-04 · para 3",
+      "stated_by": "priya", "stated_at": "2026-09-14T15:40:00", "kind": "assertion",
+      "subject": "clearance_north_of_panel", "predicate": "required_clear", "value": "24 in",
+      "support": "Maintain 24 inches clear north of the panel for service access."
+    },
+    {
+      "id": "CL-S05-04", "source": "S-05", "locator": "RFI-04 · para 3",
+      "stated_by": "priya", "stated_at": "2026-09-14T15:40:00", "kind": "assertion",
+      "subject": "clearance_north_of_panel", "predicate": "as_built_verified", "value": "not_verified",
+      "support": "The as-built branch position has not been dimensioned to us; verify the 24 inches against the installed offset before close-in."
+    },
+    {
+      "id": "CL-S05-05", "source": "S-05", "locator": "RFI-04 · para 4",
+      "stated_by": "priya", "stated_at": "2026-09-14T15:40:00", "kind": "assertion",
+      "subject": "ca_118", "predicate": "authorisation", "value": "not_authorised",
+      "support": "This response confirms design acceptability only. Contractor pricing and any change authorisation remain with Northline."
+    }
+  ]
+}
