@@ -48,14 +48,6 @@ async function load(path) {
   busy.value = false
 }
 
-async function reset() {
-  busy.value = true
-  await actions.reset()
-  a.value = 0
-  b.value = 0
-  busy.value = false
-}
-
 /* Land on the most recent pair — the comparison someone arriving here wants. */
 onMounted(() => {
   const revs = revisionNumbers.value
@@ -90,20 +82,18 @@ onMounted(() => {
             v-for="f in store.fixtures"
             :key="f"
             class="fixture"
-            :disabled="busy || store.loaded.some((p) => p.endsWith(f.split('/').pop()))"
+            :disabled="busy || store.busy"
             @click="load(f)"
           >
             <span class="fixture__path">{{ f }}</span>
-            <span class="fixture__go">load →</span>
+            <span class="fixture__go">add as v{{ Math.max(...revisionNumbers) + 1 }} →</span>
           </button>
         </div>
         <p class="caution">
           Demo fixture, not packet evidence. It is labelled as such in its own
-          header and in every source listing it produces.
+          header and in every source listing it produces. It becomes a new
+          revision branched off v{{ store.current }}, exactly like an agent run.
         </p>
-        <button v-if="store.current > 0" class="btn" :disabled="busy" @click="reset">
-          back to the supplied packet
-        </button>
       </div>
     </section>
 
@@ -157,7 +147,7 @@ onMounted(() => {
             :key="n"
             class="revbtn"
             :class="{ 'revbtn--on': store.current === n }"
-            @click="actions.showRevision(n)"
+            @click="actions.select(n)"
           >
             revision {{ n }}
             <span class="revbtn__verdict">

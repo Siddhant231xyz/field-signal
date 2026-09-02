@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { actions, store, view } from './store'
+import AgentView from './views/AgentView.vue'
 import BriefView from './views/BriefView.vue'
 import GraphView from './views/GraphView.vue'
 import EvidenceView from './views/EvidenceView.vue'
@@ -18,6 +19,7 @@ const SHEETS = [
   { id: 'conflicts', cmd: '/conflicts', name: 'Conflicts', view: EvidenceView, props: { conflictsOnly: true } },
   { id: 'unknowns', cmd: '/unknowns', name: 'Unknowns', view: UnknownsView },
   { id: 'provenance', cmd: '/people /sources', name: 'Authority', view: ProvenanceView },
+  { id: 'agent', cmd: '/agent', name: 'Add evidence', view: AgentView },
   { id: 'revisions', cmd: '/load /diff', name: 'Revisions', view: RevisionsView },
   { id: 'verify', cmd: '/verify', name: 'Verify', view: VerifyView },
 ]
@@ -68,7 +70,10 @@ onMounted(actions.boot)
 
       <div class="titleblock__field">
         <span class="titleblock__k">revision</span>
-        <span class="titleblock__v">{{ store.current }}</span>
+        <span class="titleblock__v titleblock__v--rev">
+          v{{ store.current }}
+          <span class="titleblock__of">of {{ Object.keys(store.revisions).length }}</span>
+        </span>
       </div>
 
       <div v-if="view" class="titleblock__field titleblock__field--verdict">
@@ -192,6 +197,17 @@ onMounted(actions.boot)
   font-family: var(--display);
   font-size: 17px;
   letter-spacing: 0.04em;
+}
+
+.titleblock__v--rev {
+  color: var(--cyan);
+}
+
+.titleblock__of {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--chalk-faint);
+  margin-left: 4px;
 }
 
 .verdict--hold {

@@ -7,9 +7,10 @@ const state = reactive({
   loading: true,
   error: null,
   current: 0,
-  loaded: [],
   ledger: { people: [], sources: [], claims: [] },
   revisions: {},
+  created: null,
+  busy: false,
   fixtures: [],
   verify: null,
   moves: null,
@@ -24,9 +25,10 @@ async function call(path, options) {
 
 function apply(payload) {
   state.current = payload.current
-  state.loaded = payload.loaded
   state.ledger = payload.ledger
   state.revisions = payload.revisions
+  state.ledgers = payload.ledgers
+  state.created = payload.created ?? null
 }
 
 export const store = readonly(state)
@@ -65,6 +67,7 @@ export const actions = {
 
   async loadFixture(path) {
     state.error = null
+    state.busy = true
     const before = state.current
     try {
       apply(await call('/api/load', {
@@ -75,14 +78,39 @@ export const actions = {
       state.moves = await call(`/api/diff?a=${before}&b=${state.current}`)
     } catch (e) {
       state.error = e.message
+    } finally {
+      state.busy = false
     }
   },
 
-  async reset() {
+  /* Uploads go to the agent, which reads them inside a container and writes a
+     new revision branched off whichever one is selected. */
+  async ingest(files) {
+    state.error = null
+    state.busy = true
+    const before = state.current
+    const form = new FormData()
+    for (const file of files) form.append('files', file, file.name)
+    try {
+      apply(await call('/api/agent', { method: 'POST', body: form }))
+      state.moves = await call(`/api/diff?a=${before}&b=${state.current}`)
+      return true
+    } catch (e) {
+      state.error = e.message
+      return false
+    } finally {
+      state.busy = false
+    }
+  },
+
+  async select(n) {
     state.error = null
     try {
-      apply(await call('/api/reset', { method: 'POST' }))
-      state.moves = null
+      apply(await call('/api/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revision: n }),
+      }))
     } catch (e) {
       state.error = e.message
     }
@@ -106,7 +134,5 @@ export const actions = {
     }
   },
 
-  showRevision(n) {
-    state.current = n
-  },
+
 }

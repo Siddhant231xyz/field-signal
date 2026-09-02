@@ -69,10 +69,21 @@ def _repoint(added: Ledger, stored: dict[str, Path]) -> Ledger:
             continue
         target = stored.get(Path(source.file).name)
         if target:
-            added.sources[sid] = replace(
-                source, file=str(target.relative_to(REPO)).replace("\\", "/")
-            )
+            added.sources[sid] = replace(source, file=_repo_relative(target))
     return added
+
+
+def _repo_relative(path: Path) -> str:
+    """Repo-relative where possible; absolute rather than raising if not.
+
+    /verify resolves a source file against the repo root, so a relative path is
+    what we want — but an uploads directory outside the repo must degrade, not
+    crash the whole ingestion after the model work is already paid for.
+    """
+    try:
+        return str(path.relative_to(REPO)).replace("\\", "/")
+    except ValueError:
+        return str(path)
 
 
 def ingest(
