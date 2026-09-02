@@ -17,8 +17,14 @@ diff.py            conclusions(a) vs conclusions(b)
    │
 render.py          Rich rendering — no logic
 __main__.py        REPL, command dispatch, live reload
+   │               web.py  ── JSON API + stdlib static server
+   │                  │
+   │               web/    ── Vue 3 front end
 verify.py          claim support text vs the real documents (a check, not a layer)
 ```
+
+Two front ends, one engine. The terminal and the browser both read
+`conclusions()`; neither reaches a conclusion of its own.
 
 `rules.py` and `graph.py` import nothing from a renderer and perform no I/O.
 `conclusions(ledger)` is a pure function; every iteration is over sorted ids.
@@ -142,6 +148,52 @@ with `" | "`, matching how schedule claims are transcribed), JSON fixtures as
 raw text. Whitespace is normalised because it is a PDF layout artefact;
 wording is not. Image claims are reported as `skipped — image` rather than
 silently passed. All 75 claims currently resolve to `found`.
+
+### `field_signal/web.py`
+
+The JSON API and a stdlib `ThreadingHTTPServer`. No web framework.
+
+- `payload(ledger)` — serialises every revision's conclusions plus the ledger.
+  Each condition carries a `display` string produced by `render.status_text`,
+  so the browser shows exactly what the terminal shows.
+- `_graph(conclusions, ledger)` — the node/link projection the 3D view draws.
+  Node types: decision, condition, exposure, claim, source, person. Link kinds:
+  gates, depends_on, supports, supports_exposure, noted, exposes, from_source,
+  stated_by, cites_basis, supersedes, refutes. 63 nodes / 127 links at
+  revision 0. Claims carry `gating_allowed`, so the CLI's image constraint is
+  visible in the browser too.
+- `Api` — holds the ledger and its revisions. `load()` resolves a path inside
+  the repository and refuses anything outside it; a rejected merge rolls back.
+- Routes: `GET /api/state`, `/api/verify`, `/api/fixtures`, `/api/diff?a&b`;
+  `POST /api/load`, `/api/reset`. Everything else serves `web/dist` with an
+  SPA fallback.
+- `serve()` runs it: `python -m field_signal.web`.
+
+### `web/` — Vue 3 front end
+
+Vite + Vue 3, pinned in `package.json` with a lockfile. `3d-force-graph` and
+`three` for the graph; no UI framework, no CSS framework.
+
+- `src/store.js` — fetches and indexes the payload. Holds no rules.
+- `src/App.vue` — title-block header, sheet rail, hash routing (`#/graph`), so
+  a view can be linked and survives a reload.
+- `src/views/` — `BriefView` (verdict, exposures, conditions with `/why`
+  drill-in), `GraphView` (3D), `EvidenceView` (queues; also serves
+  `/conflicts` via a prop), `UnknownsView`, `ProvenanceView` (people +
+  sources), `RevisionsView` (load, diff, revision switch), `VerifyView`.
+- `src/components/` — `StatusChip` (glyph + word + contested wording, never
+  colour alone), `ClaimRow` (verbatim text, author, citation, superseded and
+  non-gating markers), `VerdictStamp`.
+- Design: reversed blueprint — cyan and white linework on Prussian blue.
+  Barlow Condensed for title-block labels, IBM Plex Sans for body, IBM Plex
+  Mono for citations. The `.hatched` diagonal rule marks contested basis.
+- `GraphView` lays the graph out as a DAG (`dagMode('bu')`) so the decision
+  sits on top of what holds it up; `onDagError` is swallowed because
+  `cites_basis` makes the graph cyclic. Labels are canvas sprites drawn in
+  `labelFor`, which avoids a text-rendering dependency.
+
+Build: `npm --prefix web install && npm --prefix web run build` → `web/dist`,
+served by `field_signal/web.py`.
 
 ## Data
 
@@ -305,6 +357,21 @@ fourth number is invented; unknowns never render as "no"; `/why` separates
 claims that gate from claims that may not; `/sources` flags documents cited
 but not supplied; `/load` creates a revision and prints what moved; earlier
 revisions stay computable; a malformed edit keeps the last good graph.
+
+`tests/test_web.py` — the payload is JSON-serialisable; every condition carries
+status *and* basis together with the rendered display string; claims arrive
+with author and citation resolved; non-gating claims are flagged; the graph
+links a claim to the condition it gates and a condition to the decision; **no
+image observation ever appears as a gating link**; absent sources are marked;
+loading a fixture adds a revision and a diff; loading the same fixture twice is
+refused; a path outside the repository is refused; the static handler serves
+built assets, falls back to the SPA for client routes, and does not escape the
+dist directory on traversal.
+
+The Vue layer has no unit tests. It was verified by driving headless Chrome
+against the running server and reading the screenshots — a pass that found two
+layout bugs and a caption describing the layout backwards. That is weaker than
+the Python coverage, and it is recorded here rather than implied.
 
 `examples/tests/test_ingest_agent.py` — the standalone prompt contains no known
 packet answers; initial input contains no extension-based routing; generated
