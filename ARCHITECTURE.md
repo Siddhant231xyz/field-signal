@@ -175,6 +175,12 @@ Vite + Vue 3, pinned in `package.json` with a lockfile. `3d-force-graph` and
 `three` for the graph; no UI framework, no CSS framework.
 
 - `src/store.js` — fetches and indexes the payload. Holds no rules.
+- `src/escape.js` — `escapeHtml` and `tooltip`. The graph tooltip is the only
+  place this app builds HTML from ledger text, because `3d-force-graph`
+  inserts `nodeLabel` as markup rather than as text. Ledger text is untrusted
+  — the ingestion experiment derives claims from arbitrary packet documents —
+  so it is escaped in this one place. Everything else goes through Vue's `{{ }}`
+  interpolation, which escapes by default; there is no `v-html` in the app.
 - `src/App.vue` — title-block header, sheet rail, hash routing (`#/graph`), so
   a view can be linked and survives a reload.
 - `src/views/` — `BriefView` (verdict, exposures, conditions with `/why`
@@ -368,10 +374,20 @@ refused; a path outside the repository is refused; the static handler serves
 built assets, falls back to the SPA for client routes, and does not escape the
 dist directory on traversal.
 
-The Vue layer has no unit tests. It was verified by driving headless Chrome
-against the running server and reading the screenshots — a pass that found two
-layout bugs and a caption describing the layout backwards. That is weaker than
-the Python coverage, and it is recorded here rather than implied.
+`web/src/escape.test.mjs` (`npm --prefix web test`, Node's built-in runner, no
+framework) — every tag- and attribute-opening character is escaped; `&` is
+escaped first so entities are not double-decoded; ordinary claim text passes
+through unchanged; a hostile claim produces exactly as many `<` and `"` as a
+benign one, so no tag or attribute can be opened, while the hostile text stays
+visible to the reader.
+
+The Vue components have no unit tests. They were verified by driving headless
+Chrome against the running server and reading the screenshots — a pass that
+found two layout bugs and a caption describing the layout backwards. The XSS
+fix was additionally verified end to end by loading a hostile claim into the
+running server and confirming the rendered DOM contained escaped text and no
+live element. That is still weaker than the Python coverage, and it is recorded
+here rather than implied.
 
 `examples/tests/test_ingest_agent.py` — the standalone prompt contains no known
 packet answers; initial input contains no extension-based routing; generated

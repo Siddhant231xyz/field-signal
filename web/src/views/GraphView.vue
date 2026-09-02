@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import ForceGraph3D from '3d-force-graph'
 import * as THREE from 'three'
+import { tooltip } from '../escape'
 import { view } from '../store'
 
 /* The same edges the CLI reasons over, in space. Nothing here decides
@@ -110,11 +111,8 @@ function build() {
       .nodeVal(sizeOf)
       .nodeOpacity(0.92)
       .nodeResolution(16)
-      .nodeLabel((n) => `<div class="g-tip">
-          <span class="g-tip__type">${n.type}${n.kind ? ' · ' + n.kind : ''}</span>
-          <strong>${n.label}</strong>
-          ${n.citation ? `<span class="g-tip__cite">${n.citation}</span>` : ''}
-        </div>`)
+      // nodeLabel is inserted as markup, so ledger text is escaped first.
+      .nodeLabel(tooltip)
       .linkColor((l) => LINK_COLOUR[l.kind] ?? '#2f5b7d')
       .linkWidth((l) => (['gates', 'depends_on'].includes(l.kind) ? 1.4 : 0.5))
       .linkOpacity(0.42)
