@@ -1,0 +1,186 @@
+{
+  "sources": [
+    {
+      "id": "S-00",
+      "file": "packet/01_Project_Primer.pdf",
+      "type": "project primer",
+      "author": "unknown",
+      "logical_time": "2026-09-14",
+      "locator_model": "page/section",
+      "limitations": [
+        "Background reference; statements are not independently verified by the ledger.",
+        "PDF has no named author in packet metadata."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-01",
+      "file": "packet/02_Site_Huddle_Transcript.pdf",
+      "type": "rough transcript",
+      "author": "unknown",
+      "logical_time": "2026-09-14T08:05:00/2026-09-14T08:12:41",
+      "locator_model": "timestamp",
+      "limitations": [
+        "Automated rough transcript; lightly speaker-labelled.",
+        "Phone recording; machinery noise around 08:11–08:13.",
+        "Bracketed text was inserted by the transcription service where speech was not intelligible."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-02",
+      "file": "packet/03_Project_Message_Thread.pdf",
+      "type": "message export",
+      "author": "unknown",
+      "logical_time": "2026-09-11/2026-09-14",
+      "locator_model": "message timestamp",
+      "limitations": [
+        "Exported from fictional project messaging channel; attachments referenced in messages are not all supplied.",
+        "Each message is treated as a statement by its sender, not independent verification."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-03",
+      "file": "packet/04_Three-Week_Schedule_Excerpt.xlsx",
+      "type": "schedule workbook",
+      "author": "Luis Ortega",
+      "logical_time": "2026-09-14T07:00:00",
+      "locator_model": "activity ID / workbook row",
+      "limitations": [
+        "Workbook core properties XML has an unbound namespace prefix; sheet data was read directly from OOXML worksheet XML.",
+        "Source note states: Dates are working-plan dates, not proof that work occurred."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "S-04",
+      "file": "packet/05_HVAC_Change_Quote_CA-118.pdf",
+      "type": "subcontractor quotation",
+      "author": "Cascade Air",
+      "logical_time": "2026-09-13",
+      "locator_model": "section / line item",
+      "limitations": [
+        "Quotation is pricing submitted, not authorisation.",
+        "No signature appears on the supplied copy."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "P-REG",
+      "file": "packet/06_Site_Photos/06_Photo_Register.pdf",
+      "type": "photo register",
+      "author": "unknown",
+      "logical_time": "2026-09-14",
+      "locator_model": "register row",
+      "limitations": [
+        "Register supplies provenance and submitter-supplied captions; captions are statements by submitters, not independent verification.",
+        "Do not treat register thumbnails and image files as duplicate visual findings."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "P-01",
+      "file": "packet/06_Site_Photos/P-01_North-Counter_Wide_2026-09-14_0742.png",
+      "type": "site photograph",
+      "author": "Luis Ortega",
+      "logical_time": "2026-09-14T07:42:00",
+      "locator_model": "image ID + precise region/crop",
+      "limitations": [
+        "AI-generated fictional evidence per packet notice.",
+        "Visual observations do not prove intent, authority, completion, exact dimensions or code compliance.",
+        "No reliable OCR text was recoverable from the image."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "P-02",
+      "file": "packet/06_Site_Photos/P-02_North-Soffit_Close_2026-09-14_1018.png",
+      "type": "site photograph",
+      "author": "Ben Walker",
+      "logical_time": "2026-09-14T10:18:00",
+      "locator_model": "image ID + precise region/crop",
+      "limitations": [
+        "AI-generated fictional evidence per packet notice.",
+        "Visual observations do not prove intent, authority, completion, exact dimensions or code compliance.",
+        "No reliable OCR text was recoverable from the image."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "P-03",
+      "file": "packet/06_Site_Photos/P-03_Dining-Area_Wide_2026-09-14_1436.png",
+      "type": "site photograph",
+      "author": "Luis Ortega",
+      "logical_time": "2026-09-14T14:36:00",
+      "locator_model": "image ID + precise region/crop",
+      "limitations": [
+        "AI-generated fictional evidence per packet notice.",
+        "Visual observations do not prove intent, authority, completion, exact dimensions or code compliance.",
+        "No reliable OCR text was recoverable from the image."
+      ],
+      "present": true,
+      "revision": 0
+    },
+    {
+      "id": "ABS-001",
+      "file": null,
+      "type": "marked-up photo attachment",
+      "author": "Luis Ortega",
+      "logical_time": "2026-09-11T15:48:00",
+      "locator_model": "not supplied",
+      "limitations": [
+        "Specifically cited as attached/sent in S-02 and S-01 but no such attachment is present as a canonical source in the packet."
+      ],
+      "present": false,
+      "revision": 0
+    },
+    {
+      "id": "ABS-002",
+      "file": null,
+      "type": "reflected ceiling plan",
+      "author": "unknown",
+      "logical_time": "unknown",
+      "locator_model": "not supplied",
+      "limitations": [
+        "Specifically cited in S-02 but not supplied in the packet."
+      ],
+      "present": false,
+      "revision": 0
+    },
+    {
+      "id": "ABS-003",
+      "file": null,
+      "type": "approved recovery schedule",
+      "author": "unknown",
+      "logical_time": "unknown",
+      "locator_model": "not supplied",
+      "limitations": [
+        "Specifically cited in S-01 and S-02 but not supplied in the packet."
+      ],
+      "present": false,
+      "revision": 0
+    },
+    {
+      "id": "ABS-004",
+      "file": null,
+      "type": "Priya sketch",
+      "author": "Priya Shah",
+      "logical_time": "not available as of 2026-09-14T08:06:17",
+      "locator_model": "not supplied",
+      "limitations": [
+        "Discussed in S-01 as not yet available; no Priya sketch is supplied in the packet."
+      ],
+      "present": false,
+      "revision": 0
+    }
+  ]
+}

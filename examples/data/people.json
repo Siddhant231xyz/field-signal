@@ -1,0 +1,86 @@
+{
+  "people": [
+    {
+      "id": "person_maya_chen",
+      "name": "Maya Chen",
+      "org": "Northline Builders",
+      "role": "Project manager",
+      "capabilities": [
+        "manage_contracts",
+        "manage_cost",
+        "issue_formal_subcontract_direction",
+        "issue_contractual_direction_to_subcontractors",
+        "provide_written_authorisation_for_added_cost_above_2000"
+      ],
+      "capability_basis": "S-00 p.1 People table: \"Maya Chen          Project manager         Northline Builders • contracts, cost and formal subcontract direction\"; S-00 p.1 Working rules: \"Maya issues contractual direction to subcontractors. Added cost above $2,000 requires Maya’s written authorisation before Northline treats it as approved.\""
+    },
+    {
+      "id": "person_luis_ortega",
+      "name": "Luis Ortega",
+      "org": "Northline Builders",
+      "role": "Superintendent",
+      "capabilities": [
+        "coordinate_daily_field_work",
+        "coordinate_field_sequence"
+      ],
+      "capability_basis": "S-00 p.1 People table: \"Luis Ortega        Superintendent          Northline Builders • daily field coordination and sequencing\"; S-00 p.1 Working rules: \"Luis coordinates field sequence but does not approve added subcontract cost.\""
+    },
+    {
+      "id": "person_priya_shah",
+      "name": "Priya Shah",
+      "org": "Atelier North",
+      "role": "Project architect",
+      "capabilities": [
+        "interpret_design",
+        "perform_architect_review",
+        "confirm_design_acceptability"
+      ],
+      "capability_basis": "S-00 p.1 People table: \"Priya Shah         Project architect       Atelier North • design interpretation and architect review\"; S-00 p.1 Working rules: \"Priya can confirm design acceptability; she does not approve contractor pricing.\""
+    },
+    {
+      "id": "person_tasha_reed",
+      "name": "Tasha Reed",
+      "org": "Hawthorne Commons",
+      "role": "Owner representative",
+      "capabilities": [
+        "state_owner_priorities",
+        "make_user_decisions",
+        "confirm_owner_preferences"
+      ],
+      "capability_basis": "S-00 p.1 People table: \"Tasha Reed         Owner representative    Hawthorne Commons • owner priorities and user decisions\"; S-00 p.1 Working rules: \"Tasha can confirm owner preferences, but she does not directly authorise subcontractor changes.\""
+    },
+    {
+      "id": "person_ben_walker",
+      "name": "Ben Walker",
+      "org": "Cascade Air",
+      "role": "HVAC foreman",
+      "capabilities": [
+        "perform_hvac_field_installation",
+        "provide_hvac_pricing"
+      ],
+      "capability_basis": "S-00 p.1 People table: \"Ben Walker         HVAC foreman            Cascade Air • field installation and HVAC pricing\""
+    },
+    {
+      "id": "person_omar_ellis",
+      "name": "Omar Ellis",
+      "org": "Sentinel Fire",
+      "role": "Fire-protection foreman",
+      "capabilities": [
+        "perform_sprinkler_installation",
+        "confirm_sprinkler_clearance"
+      ],
+      "capability_basis": "S-00 p.1 People table: \"Omar Ellis         Fire-protection foreman  Sentinel Fire • sprinkler installation and clearance confirmation\""
+    },
+    {
+      "id": "person_nina_alvarez",
+      "name": "Nina Alvarez",
+      "org": "Timberline Fixtures",
+      "role": "Millwork PM",
+      "capabilities": [
+        "manage_custom_casework",
+        "coordinate_custom_casework_delivery"
+      ],
+      "capability_basis": "S-00 p.1 People table: \"Nina Alvarez       Millwork PM             Timberline Fixtures • custom casework and delivery coordination\""
+    }
+  ]
+}

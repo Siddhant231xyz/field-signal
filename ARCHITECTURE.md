@@ -158,6 +158,103 @@ silently passed. All 75 claims currently resolve to `found`.
 - `demo/rfi-04.json` — demo fixture, clearly labelled as **not packet
   evidence**.
 
+## Standalone ingestion experiment
+
+`examples/` is an isolated experiment for generating the ledger JSON from an
+arbitrary input directory. It is not imported by `field_signal`, and it never
+modifies or supplies runtime data to the existing application. Its default
+input is `packet/`, its generated output is `examples/data/`, and `data/` is
+used only by a host-side evaluator after generation and validation finish.
+
+### Execution topology
+
+```
+host: examples/run_containerized.py
+   │  builds and starts an unprivileged Docker container
+   │  mounts packet/ read-only at /packet
+   ▼
+container (UID 0): examples/container_agent.py
+   │  OpenAI Responses API agent loop
+   │  one custom function tool: shell
+   ├── /packet  read-only evidence
+   ├── /work    temporary extraction files
+   └── /output  staged JSON artifacts
+   │
+   ▼
+host validator → atomic promotion to examples/data → reference comparison
+```
+
+The agent process and model-requested shell commands both run as root inside
+the same disposable container. GPT-5.5 runs on OpenAI's servers; only the SDK,
+agent loop, and tool executor run in Docker. The container is deliberately not
+`--privileged`, has no Docker socket or host-home mount, uses
+`no-new-privileges`, and has CPU, memory, and process limits. Its default
+`bridge` network lets the agent call OpenAI and install packages.
+
+The root `.env` selects `gpt-5.5` with `high` reasoning effort. The loop permits
+up to 200 shell calls plus 8 independent-validation repair rounds. The model
+receives one `shell` function with a command, timeout, and optional image
+attachments; there are no format-specific model tools.
+
+### Discovery and extraction
+
+The host gives the agent only the task and mounted directory, with no extension
+routing or reference-output hints. The generic prompt requires it to inventory
+every file recursively, treat extensions as labels, inspect magic bytes and
+container structure with tools such as `file --mime-type`, `xxd`, and
+`unzip -l`, and then install suitable parsers. Images can be returned through
+the same shell result only after their binary MIME type has been confirmed.
+
+The prompt defines the `people.json`, `sources.json`, and `claims.json` keys,
+types, evidence semantics, and completion checks. It contains no packet-specific
+names, expected facts, expected counts, or decision answer. Packet content is
+treated as evidence rather than instructions, and uploaded scripts, macros, and
+executables must not be run.
+
+`examples/ingest_agent.py` owns the prompt, Responses API tool loop, structural
+validator, and atomic promotion helper. `examples/container_agent.py` owns the
+root shell implementation and image attachment handling.
+`examples/run_containerized.py` is the host launcher. `examples/evaluate.py`
+compares generated output with the existing ledger only after the container has
+stopped and the candidate files have passed validation.
+
+### Validation and observed result
+
+Output is written to a temporary staging directory first. Validation requires
+exact top-level filenames and object keys, expected field types, unique ids,
+valid person/source/claim references, valid relationship targets, ISO-8601
+timestamps, known claim kinds, and non-empty verbatim support. Invalid output is
+returned to the agent for repair; only valid files are promoted with
+`os.replace`.
+
+The live `packet/` run completed and passed both container-side and host-side
+validation. It generated 7 people, 13 sources, and 260 claims. Against the
+hand-curated ledger it matched all 7 people by name, all 9 present sources by
+file, and 73 of 75 normalized textual supports by exact match or containment.
+The two uncovered reference supports are synthetic image-observation
+placeholders rather than source text.
+
+The generated files are not exact replicas of `data/`: the reference contains
+7 people, 11 sources, and 75 claims. The generic agent extracted more sources
+and split passages into more atomic claims, while the reference applies human
+decisions about decision scope, claim granularity, ids, and normalized
+vocabulary. The experiment therefore demonstrates strong packet discovery and
+evidence coverage, but not deterministic reproduction of the curated ledger
+from schema keys alone. Exact equivalence would require a general extraction
+policy covering those normalization and scope decisions, followed by explicit
+evaluation; it cannot be inferred reliably from file contents.
+
+### Security boundary
+
+The launcher passes `.env` into the container because the in-container OpenAI
+client needs the API key. Shell child environments remove `OPENAI_API_KEY`, but
+the client and shell share one root container, so this does not protect the key
+from a hostile command that inspects another process. This layout is suitable
+for the local experiment, not untrusted multi-tenant ingestion. A production
+version should separate the API client and root shell into different containers
+or expose a short-lived internal API proxy, install dependencies before mounting
+sensitive inputs, and disable processing-network access afterward.
+
 ## Tests
 
 `tests/test_model.py` — the packet ledger loads and validates; absent cited
@@ -209,4 +306,14 @@ claims that gate from claims that may not; `/sources` flags documents cited
 but not supplied; `/load` creates a revision and prints what moved; earlier
 revisions stay computable; a malformed edit keeps the last good graph.
 
+`examples/tests/test_ingest_agent.py` — the standalone prompt contains no known
+packet answers; initial input contains no extension-based routing; generated
+ledgers accept the generic schema and reject dangling or incorrectly typed
+relationships; the Docker command runs as UID 0 without privileged mode and
+mounts `/packet` read-only; the Responses API loop uses GPT-5.5 at high effort
+and returns shell tool output to the model.
+
 Run: `.venv/bin/python -m pytest tests -q`
+
+Run all production and experiment tests:
+`.venv/bin/python -m pytest -q`
