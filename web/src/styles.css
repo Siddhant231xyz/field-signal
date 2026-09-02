@@ -1,0 +1,239 @@
+/* Reversed blueprint: white and cyan linework on Prussian blue, the way a
+   real blueprint prints. Status is never carried by colour alone — every
+   state has a glyph and a word, matching the CLI. */
+
+:root {
+  --ink: #071726;
+  --ink-1: #0b2337;
+  --ink-2: #103049;
+  --line: #1c4462;
+  --line-soft: #143148;
+  --chalk: #e6f2fb;
+  --chalk-dim: #9fbdd4;
+  --chalk-faint: #6b8ca8;
+  --cyan: #4cc9f0;
+
+  --unmet: #ff6b63;
+  --unknown: #ffb020;
+  --met: #3ddc97;
+  --contested: #c77dff;
+  --exposed: #ff8a5c;
+
+  --display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --body: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --rail: 232px;
+  --bar: 58px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--chalk);
+  font-family: var(--body);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The drawing grid. Present, never loud. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 88px 88px;
+  opacity: 0.4;
+  mask-image: radial-gradient(ellipse at 30% 0%, #000 20%, transparent 78%);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin: 0;
+}
+
+a {
+  color: var(--cyan);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+/* --- title-block vernacular ------------------------------------------- */
+
+.eyebrow {
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--chalk-faint);
+}
+
+.cite {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: -0.01em;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+.verbatim {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--chalk-dim);
+}
+
+.verbatim::before {
+  content: '“';
+}
+.verbatim::after {
+  content: '”';
+}
+
+/* Hatching means "special condition" on a drawing. Here it means the
+   evidence underneath disagrees with itself. */
+.hatched {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--contested) 13%, transparent) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+/* --- panels ------------------------------------------------------------ */
+
+.panel {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink-1) 88%, transparent);
+  position: relative;
+}
+
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink-2) 60%, transparent);
+}
+
+.panel__title {
+  font-family: var(--display);
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.panel__body {
+  padding: 16px;
+}
+
+/* --- status ------------------------------------------------------------ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.chip--met {
+  color: var(--met);
+}
+.chip--unmet {
+  color: var(--unmet);
+}
+.chip--unknown {
+  color: var(--unknown);
+}
+.chip--exposed {
+  color: var(--exposed);
+}
+.chip--contested {
+  color: var(--contested);
+}
+
+.chip__glyph {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* --- scrollbars -------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border: 2px solid var(--ink);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--chalk-faint);
+}
+
+/* --- motion ------------------------------------------------------------ */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

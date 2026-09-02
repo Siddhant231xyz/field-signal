@@ -121,3 +121,42 @@ def test_verify_reports_every_claim(api):
 
 def test_payload_helper_matches_the_api(state):
     assert payload(load_ledger())["revisions"]["0"]["decision"]["recommendation"] == "HOLD"
+
+
+def test_static_handler_serves_the_built_frontend(tmp_path):
+    """A built frontend is served; an unknown path falls back to the SPA."""
+    from field_signal.web import make_handler
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<div id=app></div>")
+    (dist / "app.js").write_text("console.log(1)")
+
+    sent = {}
+
+    class Fake(make_handler(Api(), dist)):
+        def __init__(self):  # bypass BaseHTTPRequestHandler's socket setup
+            pass
+
+        def send_response(self, status):
+            sent["status"] = status
+
+        def send_header(self, k, v):
+            sent.setdefault("headers", {})[k] = v
+
+        def end_headers(self):
+            pass
+
+        @property
+        def wfile(self):
+            return type("W", (), {"write": lambda _s, b: sent.update(body=b)})()
+
+    h = Fake()
+    h._static("/app.js")
+    assert sent["headers"]["Content-Type"] == "text/javascript"
+
+    h._static("/brief")  # a client route, not a file
+    assert b"id=app" in sent["body"]
+
+    h._static("/../../etc/passwd")  # traversal falls back, never escapes
+    assert b"id=app" in sent["body"]
