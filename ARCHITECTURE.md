@@ -9,7 +9,13 @@ This file records only what is built and passing.
 data/*.json        evidence — the only source of project facts
    │
 model.py           typed nodes, schema validation, revision slicing
+   │
+rules.py           condition rules — pure functions, no I/O
+graph.py           queues, topological derivation, taint propagation
 ```
+
+`rules.py` and `graph.py` import nothing from a renderer and perform no I/O.
+`conclusions(ledger)` is a pure function; every iteration is over sorted ids.
 
 ## Modules
 
@@ -38,6 +44,55 @@ Typed evidence nodes and validation. Knows what a claim *is*; derives nothing.
 - `load_ledger(dir)` / `load_fixture(path)` — JSON in, `Ledger` out.
 - `ValidationError` carries every problem found, not the first.
 
+### `field_signal/rules.py`
+
+`Status` (MET / UNMET / UNKNOWN), `Basis` (SETTLED / CONTESTED) and `Mode`
+(SINGLE / RESOLVED / ASSUMED) live here so rules stay free of graph imports.
+
+- `RuleResult(status, reason, support, notes)` — `support` holds the claim ids
+  the rule actually read; those ids *are* the `supports` edges, materialised at
+  derivation time. `notes` holds claim ids that are displayed but may never
+  gate (image observations, the unintelligible fragment).
+- `ConditionSpec(id, label, question, rule, depends_on, gates, introduced_by)`.
+  `introduced_by` names the source that brings the condition into existence, so
+  new evidence can add a question that did not previously exist.
+- `CONDITIONS` — seven: `cost_authorised`, `access_panel_located`,
+  `design_confirmed`, `sprinkler_clearance_confirmed`,
+  `duct_position_established`, `field_review_outcome_recorded`, and
+  `clearance_24in_maintained` (introduced by `S-05`, absent at revision 0).
+  `cost_authorised` compares the quoted amount against the threshold claim, so
+  it is driven by the packet rather than hard-coded to $2,850.
+- `EXPOSURES` — four sunk facts: work already performed, cost pending and
+  larger than the quote, a crew held, the direction in force. Exposures are
+  not conditions: rendering them as conditions would imply they are still
+  preventable.
+
+### `field_signal/graph.py`
+
+- `build_queues(ledger)` — groups claims by `(subject, predicate)`, newest
+  first. `superseded` collects the targets of `supersedes` edges within the
+  queue; the head is the newest live claim. Mode is `RESOLVED` when the head
+  supersedes a claim in its own queue, `ASSUMED` when a live claim disagrees
+  with the head and nothing declares a resolution, otherwise `SINGLE`.
+  Superseded claims stay in the queue — nothing is deleted or mutated.
+- `Evidence` — the read-only facade rules see (`queue`, `head`, `claims`,
+  `person`, `source`, `name`, `can`, `cite`).
+- `_check_gating` — a rule returning an `observation` or `unintelligible`
+  claim in `support` for a gating condition raises `ValidationError`. This is
+  the image constraint, enforced rather than trusted.
+- `conclusions(ledger, specs, exposures)` — evaluates conditions in
+  `graphlib.TopologicalSorter` order, then:
+  - **taint**: a condition is `CONTESTED` if any support claim is the head of
+    an `ASSUMED` queue, or if any condition it depends on is contested;
+  - **blocking**: a `MET` status whose dependency is not `MET` is downgraded to
+    `UNKNOWN` with the blocker named, so a conclusion can never render cleaner
+    than its premise;
+  - the decision recommends `HOLD` unless every gating condition is `MET`, and
+    carries the contested basis upward.
+- `Conclusions.as_dict()` — sorted, primitive-only; the determinism test hashes
+  it. Also carries `rebuttals` (refuted claim → refuting claims) and
+  `absent_bases` (absent source → claims leaning on it).
+
 ## Data
 
 - `data/people.json` — 7 people, capability sets, each cited to S-00.
@@ -45,6 +100,11 @@ Typed evidence nodes and validation. Knows what a claim *is*; derives nothing.
 - `data/claims.json` — the ledger. Every claim carries verbatim `support` and
   a locator in its source's own locator model (transcript → timestamp,
   schedule → activity ID, quote → line item, photo → image ID + region).
+  `value` is *normalised* so agreement and disagreement compare cleanly
+  (e.g. "Thursday morning" and "2026-09-17" both become `2026-09-17`);
+  `support` stays verbatim, so every normalisation is auditable against the
+  source. Normalisation is a transcription judgment and sits outside the
+  determinism guarantee.
 - `demo/rfi-04.json` — demo fixture, clearly labelled as **not packet
   evidence**.
 
@@ -54,5 +114,27 @@ Typed evidence nodes and validation. Knows what a claim *is*; derives nothing.
 sources are modelled, not dropped; an unknown person is a validation error;
 re-loading an existing source id is refused (corrections must arrive as a new
 source); a revision slice excludes later sources.
+
+`tests/test_derivation.py` — the risks that matter:
+
+| Test | Risk it prevents |
+|---|---|
+| `authorisation_unmet_above_threshold` | the core money rule |
+| `below_threshold_needs_no_written_authorisation` | the rule reads the threshold, it is not hard-coded |
+| `owner_support_is_not_authorisation` | capability, not sentiment |
+| `capability_is_read_from_the_packet_not_assumed` | authority is cited, not assumed |
+| `field_review_outcome_is_unknown_not_false` | absence is not negation |
+| `schedule_row_does_not_assert_occurrence` | a plan is not a receipt |
+| `caption_yields_only_a_statement_claim` | a caption claims only what was said |
+| `observation_cannot_gate_compliance` | the image constraint, enforced |
+| `unintelligible_fragment_gates_nothing` | 08:11:02 neither used nor hidden |
+| `three_offsets_surface_as_conflict` | never emit an invented number |
+| `rebuttal_edge_survives_queueing` | Omar's rebuttal stays intact |
+| `explicit_supersession_retains_losers` | append-only holds |
+| `cited_basis_absent_is_surfaced` | the missing recovery schedule |
+| `taint_propagates_to_recommendation` | **the central guarantee** |
+| `dependency_taint_reaches_a_dependent_condition` | the deadlock is modelled |
+| `excluded_scope_keeps_cost_unknown` | $2,850 is not the exposure |
+| `determinism_under_input_permutation` | **shuffle input, identical output** |
 
 Run: `.venv/bin/python -m pytest tests -q`
