@@ -82,6 +82,16 @@ claims it extracts become a new revision.
 Requires Docker and `OPENAI_API_KEY` in `.env`. Without them it reports a
 failure and writes nothing.
 
+`demo/07_Project_Message_Thread_Followup.pdf` is there to try it on — a
+fictional continuation of the packet's message thread, in the packet's own
+style, covering the afternoon the real record stops. It is deliberately not
+tidy: the field review finally has an outcome and the access panel is fixed,
+but Ben produces a *fourth* duct offset ("closer to seven inches than six"),
+Omar still refuses to sign off clearance, Maya explicitly withholds
+authorisation pending a revised quote, and Nina cites another document that is
+not in the packet. Loading it should close one unknown and deepen two
+conflicts. Its HTML source sits beside it, with the command to regenerate it.
+
 ### How revisions work
 
 Each revision is a directory — `data/v1`, `data/v2`, … — holding a complete

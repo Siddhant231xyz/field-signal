@@ -256,8 +256,13 @@ served by `field_signal/web.py`.
   `support` stays verbatim, so every normalisation is auditable against the
   source. Normalisation is a transcription judgment and sits outside the
   determinism guarantee.
-- `demo/rfi-04.json` — demo fixture, clearly labelled as **not packet
-  evidence**.
+- `demo/rfi-04.json` — a *ledger* fixture (claims already extracted), clearly
+  labelled as **not packet evidence**. `/load` turns it into a new revision.
+- `demo/07_Project_Message_Thread_Followup.pdf` — a *source document*, in the
+  packet's own visual style, for exercising `/agent` end to end. The agent
+  extracts claims from it; `/load` cannot read it.
+- `uploads/vN/` — files added through the agent, kept so `/verify` can still
+  read the document a claim came from. Git-ignored.
 
 ## Standalone ingestion experiment
 
@@ -417,18 +422,27 @@ recommendation and its blockers; status is never carried by colour alone; the
 quote never appears without its exclusions; all three offsets appear and no
 fourth number is invented; unknowns never render as "no"; `/why` separates
 claims that gate from claims that may not; `/sources` flags documents cited
-but not supplied; `/load` creates a revision and prints what moved; earlier
-revisions stay computable; a malformed edit keeps the last good graph.
+but not supplied; `/load` creates a revision and prints what moved; selecting a
+revision changes every view; a new revision branches off the *selected* one
+(v1 selected with v2 present gives v3); `/revisions` lists what is on disk;
+`/agent` with no paths explains itself; a malformed edit keeps the last good
+graph. Every CLI test runs against a copy of `data/`, never the repo's own.
 
 `tests/test_web.py` — the payload is JSON-serialisable; every condition carries
 status *and* basis together with the rendered display string; claims arrive
 with author and citation resolved; non-gating claims are flagged; the graph
 links a claim to the condition it gates and a condition to the decision; **no
 image observation ever appears as a gating link**; absent sources are marked;
-loading a fixture adds a revision and a diff; loading the same fixture twice is
-refused; a path outside the repository is refused; the static handler serves
+loading a fixture adds a revision and a diff; **selecting a revision swaps the
+whole ledger**, so v1 does not show v2's claims; loading the same fixture twice
+adds nothing, because dedup makes it a no-op; a path outside the repository is
+refused; the static handler serves
 built assets, falls back to the SPA for client routes, and does not escape the
 dist directory on traversal.
+
+`tests/` share one rule: a test copies `data/` before touching it. `/load` and
+`/agent` write revision directories to disk, and a test that mutated the packet
+would corrupt the evidence the whole product rests on.
 
 `web/src/escape.test.mjs` (`npm --prefix web test`, Node's built-in runner, no
 framework) — every tag- and attribute-opening character is escaped; `&` is

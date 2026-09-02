@@ -1,0 +1,267 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Project Message Thread — Follow-up</title>
+<!--
+  Source for 07_Project_Message_Thread_Followup.pdf. Fictional demo evidence,
+  not part of the supplied packet — a source document for exercising /agent,
+  written in the packet's own visual style.
+
+  Regenerate:
+    google-chrome --headless --no-pdf-header-footer \
+      --print-to-pdf=demo/07_Project_Message_Thread_Followup.pdf \
+      file://$PWD/demo/07_Project_Message_Thread_Followup.html
+-->
+<style>
+  /* Matches the supplied packet: US Letter, DejaVu Sans, and the palette
+     pulled from 03_Project_Message_Thread.pdf. */
+  @page {
+    size: letter;
+    margin: 0.62in 0.8in 0.55in;
+  }
+
+  :root {
+    --navy: #132238;
+    --teal: #176b87;
+    --grey: #556370;
+    --panel: #eef4f7;
+    --rule: #d7e2e9;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: 'DejaVu Sans', 'Bitstream Vera Sans', sans-serif;
+    font-size: 8.4pt;
+    line-height: 1.42;
+    color: var(--navy);
+    /* The packet's own PDFs extract as "soffit", not "soﬃt". A ligature here
+       would silently break /verify's match against the source text. */
+    font-variant-ligatures: none;
+    -webkit-font-feature-settings: 'liga' 0, 'clig' 0;
+  }
+
+  .runhead {
+    display: flex;
+    justify-content: space-between;
+    font-size: 6.6pt;
+    letter-spacing: 0.09em;
+    color: var(--grey);
+    border-bottom: 0.6pt solid var(--rule);
+    padding-bottom: 4pt;
+    margin-bottom: 11pt;
+  }
+
+  .eyebrow {
+    font-size: 6.8pt;
+    letter-spacing: 0.16em;
+    color: var(--teal);
+    font-weight: bold;
+    margin-bottom: 3pt;
+  }
+
+  h1 {
+    font-size: 17pt;
+    font-weight: bold;
+    margin: 0 0 4pt;
+    letter-spacing: -0.01em;
+  }
+
+  .source {
+    font-size: 8.2pt;
+    color: var(--grey);
+    margin: 0 0 1pt;
+  }
+
+  .project {
+    font-size: 8.2pt;
+    color: var(--teal);
+    margin: 0 0 11pt;
+  }
+
+  .note {
+    background: var(--panel);
+    border-left: 2.4pt solid var(--teal);
+    padding: 6pt 9pt;
+    font-size: 7.4pt;
+    color: var(--grey);
+    margin-bottom: 10pt;
+  }
+
+  .msg {
+    padding: 5.5pt 0 6pt;
+    border-top: 0.6pt solid var(--rule);
+    page-break-inside: avoid;
+  }
+
+  .msg__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14pt;
+    margin-bottom: 3pt;
+  }
+
+  .msg__who {
+    font-weight: bold;
+    font-size: 8.2pt;
+  }
+
+  .msg__when {
+    font-size: 7.4pt;
+    color: var(--grey);
+    white-space: nowrap;
+  }
+
+  .msg__body { margin: 0; }
+
+  .day {
+    font-size: 7pt;
+    letter-spacing: 0.16em;
+    color: var(--teal);
+    font-weight: bold;
+    margin: 10pt 0 1pt;
+  }
+
+  .foot {
+    margin-top: 11pt;
+    padding-top: 6pt;
+    border-top: 0.6pt solid var(--rule);
+    font-size: 7.6pt;
+    color: var(--grey);
+  }
+</style>
+
+<div class="runhead">
+  <span>FIELD SIGNAL — FICTIONAL PROJECT EVIDENCE</span>
+  <span>1</span>
+</div>
+
+<div class="eyebrow">FIELD SIGNAL — CANDIDATE PACKET</div>
+<h1>Project Message Thread — Follow-up</h1>
+<p class="source">Source S-06 • exported from fictional project messaging channel</p>
+<p class="project">Hawthorne Commons Café • Project HC-17 • 14–15 September 2026</p>
+
+<div class="note">
+  Continuation of the channel export in 03_Project_Message_Thread.pdf, covering
+  the afternoon of 14 September and the following morning. Export shows sent
+  messages only; it does not show whether a message was read or acted on.
+</div>
+
+<div class="day">MONDAY 14 SEPTEMBER</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Luis → Project channel</span>
+    <span class="msg__when">Mon 14 Sep, 13:47</span>
+  </div>
+  <p class="msg__body">
+    Field review done at the soffit. Priya, Omar and Ben all attended, about
+    forty minutes. Notes to follow from Priya. No final duct connection made
+    and no board in that bay.
+  </p>
+</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Priya → Luis, Maya</span>
+    <span class="msg__when">Mon 14 Sep, 14:12</span>
+  </div>
+  <p class="msg__body">
+    Access panel is fixed at the reflected ceiling plan position, centred
+    between the two downlights on the east side of the affected bay. The
+    diffuser may shift west of the original location. This confirms design
+    acceptability only; pricing and change authorisation are Northline's.
+  </p>
+</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Omar → Luis, Maya</span>
+    <span class="msg__when">Mon 14 Sep, 14:31</span>
+  </div>
+  <p class="msg__body">
+    With the panel where Priya has put it I need twenty-four inches clear north
+    of it to get a wrench on the head. I still have not laid out the final head
+    and I am not signing off clearance until someone gives me a dimension for
+    where that branch actually sits.
+  </p>
+</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Ben → Luis</span>
+    <span class="msg__when">Mon 14 Sep, 14:58</span>
+  </div>
+  <p class="msg__body">
+    Tape on it this afternoon, it is closer to seven inches than six. I will
+    put a revised number together for the sprinkler rework Omar is talking
+    about, that was not in CA-118.
+  </p>
+</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Tasha → Maya</span>
+    <span class="msg__when">Mon 14 Sep, 15:30</span>
+  </div>
+  <p class="msg__body">
+    Sounds like it is sorted. Happy for the team to push on so we protect the
+    twelfth. Let me know if the number moves much.
+  </p>
+</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Maya → Ben, Luis, Tasha</span>
+    <span class="msg__when">Mon 14 Sep, 16:02</span>
+  </div>
+  <p class="msg__body">
+    I am not authorising CA-118 as it stands. Send the revised quote including
+    the sprinkler rework and I will issue a written change authorisation
+    against that. Ben, you may keep the branch where it is for now. Hold the
+    final connection until Omar confirms clearance.
+  </p>
+</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Nina → Luis, Maya</span>
+    <span class="msg__when">Mon 14 Sep, 16:40</span>
+  </div>
+  <p class="msg__body">
+    Booth is on the truck for Thursday as per the approved recovery schedule.
+    Installation sequence is in the Timberline method statement I sent across
+    in August.
+  </p>
+</div>
+
+<div class="day">TUESDAY 15 SEPTEMBER</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Omar → Maya, Luis</span>
+    <span class="msg__when">Tue 15 Sep, 07:55</span>
+  </div>
+  <p class="msg__body">
+    Nobody has given me the dimension. Until I have it I cannot tell you
+    whether twenty-four inches is achievable, and I will not have the head laid
+    out before Thursday's inspection if I am still waiting Wednesday.
+  </p>
+</div>
+
+<div class="msg">
+  <div class="msg__head">
+    <span class="msg__who">Ben → Maya, Luis</span>
+    <span class="msg__when">Tue 15 Sep, 08:12</span>
+  </div>
+  <p class="msg__body">
+    Revised quote coming today. It will be more than 2,850 once the sprinkler
+    rework is in. My crew is on another job Wednesday afternoon.
+  </p>
+</div>
+
+<div class="foot">
+  Export ends 15 September 2026 08:12. These materials are fictional and were
+  created for the Field Signal exercise.
+</div>
