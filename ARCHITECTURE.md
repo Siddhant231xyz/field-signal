@@ -6,9 +6,11 @@ This file records only what is built and passing.
 ## Layers
 
 ```
-data/*.json        evidence — the only source of project facts
+data/v1, v2, …     evidence — one complete ledger per revision
    │
-model.py           typed nodes, schema validation, revision slicing
+model.py           typed nodes, schema validation, revision directories
+   │
+agent.py           uploads → the containerized extractor → a new revision
    │
 rules.py           condition rules — pure functions, no I/O
 graph.py           queues, topological derivation, taint propagation
@@ -51,10 +53,42 @@ Typed evidence nodes and validation. Knows what a claim *is*; derives nothing.
   unintelligible. `NON_GATING_KINDS` — observation, unintelligible.
 - `Ledger` — the three dicts plus `claim_list()` (sorted by `stated_at`, `id`,
   so nothing downstream depends on dict order), `by_subject()`, `author_of()`,
-  `at(revision)` (revision slice), `merge(other, revision)` (append-only; a
-  repeated source or claim id raises rather than overwriting), `validate()`.
+  `max_revision()`, `validate()`.
 - `load_ledger(dir)` / `load_fixture(path)` — JSON in, `Ledger` out.
+  `load_ledger()` with no argument is the latest revision.
 - `ValidationError` carries every problem found, not the first.
+
+**Revisions are directories.** `data/v1`, `data/v2`, … each hold a complete
+`people.json` / `sources.json` / `claims.json`. Selecting a revision swaps the
+whole ledger; nothing is filtered.
+
+- `revision_numbers(root)`, `latest_revision(root)`, `revision_dir(root, n)`,
+  `load_revision(root, n)`.
+- `create_revision(root, base, added) -> int` — writes **base + added** as the
+  next free number. Base is the revision you selected; the number is whatever
+  is free. So adding evidence while looking at v1 when v2 exists produces v3
+  containing v1 + new, *not* v2 + new. Added claims and sources are stamped
+  with the new revision number. Nothing is written unless the merged ledger
+  validates, so a bad extraction leaves existing revisions untouched.
+- `_content_key(claim)` is `(source, locator, subject, predicate, value)`.
+  Dedup uses it as well as the claim id, because the agent re-reads the packet
+  on every run and does not reproduce ids — without it a second run would
+  duplicate the whole ledger.
+
+### `field_signal/agent.py`
+
+Uploads in, a new revision out. It reads no documents itself.
+
+- `stage(paths, dir)` — copies files (recursing into directories) flat into one
+  staging directory, suffixing basename collisions.
+- `ingest(paths, root, base, runner)` — stages, calls `runner`, loads the
+  produced ledger, keeps the uploads under `uploads/vN`, repoints each
+  generated source at the stored copy so `/verify` can still read the file a
+  claim came from, then calls `create_revision`. `runner` defaults to
+  `examples/run_containerized.py` (Docker + `OPENAI_API_KEY`) and is injected
+  in tests, so the seam is covered without either.
+- Agent output is a model's proposal: it lands in a **new** revision to be
+  compared, never as an edit to one already read.
 
 ### `field_signal/rules.py`
 
@@ -71,7 +105,7 @@ Typed evidence nodes and validation. Knows what a claim *is*; derives nothing.
 - `CONDITIONS` — seven: `cost_authorised`, `access_panel_located`,
   `design_confirmed`, `sprinkler_clearance_confirmed`,
   `duct_position_established`, `field_review_outcome_recorded`, and
-  `clearance_24in_maintained` (introduced by `S-05`, absent at revision 0).
+  `clearance_24in_maintained` (introduced by `S-05`, absent at v1).
   `cost_authorised` compares the quoted amount against the threshold claim, so
   it is driven by the packet rather than hard-coded to $2,850.
 - `EXPOSURES` — four sunk facts: work already performed, cost pending and
@@ -162,11 +196,19 @@ The JSON API and a stdlib `ThreadingHTTPServer`. No web framework.
   stated_by, cites_basis, supersedes, refutes. 63 nodes / 127 links at
   revision 0. Claims carry `gating_allowed`, so the CLI's image constraint is
   visible in the browser too.
-- `Api` — holds the ledger and its revisions. `load()` resolves a path inside
-  the repository and refuses anything outside it; a rejected merge rolls back.
+- `Api` — every revision on disk plus which one is selected. `load()` and
+  `ingest()` both create a new revision branched off the selected one.
+  `load()` resolves a path inside the repository and refuses anything outside.
+- `parse_multipart(body, content_type)` — files out of a multipart upload by
+  splitting on the boundary directly; `email` and `cgi.FieldStorage` both
+  mangle binary parts. An uploaded filename is reduced to its basename, so it
+  can never choose a path.
 - Routes: `GET /api/state`, `/api/verify`, `/api/fixtures`, `/api/diff?a&b`;
-  `POST /api/load`, `/api/reset`. Everything else serves `web/dist` with an
-  SPA fallback.
+  `POST /api/load`, `/api/select`, `/api/agent` (multipart). Everything else
+  serves `web/dist` with an SPA fallback.
+- `payload(ledgers, selected)` sends every revision's conclusions, plus the
+  selected revision's ledger — per-revision on purpose, so selecting v1 shows
+  v1's claims everywhere.
 - `serve()` runs it: `python -m field_signal.web`.
 
 ### `web/` — Vue 3 front end
@@ -186,7 +228,8 @@ Vite + Vue 3, pinned in `package.json` with a lockfile. `3d-force-graph` and
 - `src/views/` — `BriefView` (verdict, exposures, conditions with `/why`
   drill-in), `GraphView` (3D), `EvidenceView` (queues; also serves
   `/conflicts` via a prop), `UnknownsView`, `ProvenanceView` (people +
-  sources), `RevisionsView` (load, diff, revision switch), `VerifyView`.
+  sources), `AgentView` (drag-drop upload → a new revision), `RevisionsView`
+  (load, diff, revision select), `VerifyView`.
 - `src/components/` — `StatusChip` (glyph + word + contested wording, never
   colour alone), `ClaimRow` (verbatim text, author, citation, superseded and
   non-gating markers), `VerdictStamp`.
@@ -203,9 +246,9 @@ served by `field_signal/web.py`.
 
 ## Data
 
-- `data/people.json` — 7 people, capability sets, each cited to S-00.
-- `data/sources.json` — 9 packet sources + 2 absent-but-cited sources.
-- `data/claims.json` — the ledger. Every claim carries verbatim `support` and
+- `data/v1/people.json` — 7 people, capability sets, each cited to S-00.
+- `data/v1/sources.json` — 9 packet sources + 2 absent-but-cited sources.
+- `data/v1/claims.json` — the ledger, 75 claims. Every claim carries verbatim `support` and
   a locator in its source's own locator model (transcript → timestamp,
   schedule → activity ID, quote → line item, photo → image ID + region).
   `value` is *normalised* so agreement and disagreement compare cleanly
@@ -316,9 +359,22 @@ sensitive inputs, and disable processing-network access afterward.
 ## Tests
 
 `tests/test_model.py` — the packet ledger loads and validates; absent cited
-sources are modelled, not dropped; an unknown person is a validation error;
-re-loading an existing source id is refused (corrections must arrive as a new
-source); a revision slice excludes later sources.
+sources are modelled, not dropped; an unknown person is a validation error; a
+fixture is a partial ledger and only becomes evidence via a revision.
+
+`tests/test_revisions.py` — the packet ships as v1; a new revision takes the
+next free number and contains base + added; **branching from an older revision
+keeps that revision as the base** (v1 selected with v2 present gives v3 = v1 +
+new); added claims carry the new revision number; re-adding the same evidence
+adds nothing, including when the agent renames every id; a revision that fails
+validation is not written.
+
+`tests/test_agent.py` — the extractor is stubbed. An upload becomes a new
+revision and leaves the base untouched; uploads are kept and each source points
+at the stored copy so `/verify` can still read it; files of any type stage flat
+and colliding basenames both survive; branching uses the selected revision; an
+empty upload, a failing extractor and an invalid extraction each leave the
+revisions alone.
 
 `tests/test_derivation.py` — the risks that matter:
 

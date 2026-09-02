@@ -10,9 +10,9 @@ relocation (CA-118, $2,850) before Thursday's above-ceiling inspection.
 merely *claimed*, and what is genuinely *unknown* — and showing what moves when
 one consequential source changes.
 
-Every conclusion is derived at runtime from `data/*.json`. Nothing is written
-as prose in a template, so a new or corrected source can be dropped in and the
-affected conclusions visibly change.
+Every conclusion is derived at runtime from the ledger in `data/`. Nothing is
+written as prose in a template, so a new or corrected source can be dropped in
+and the affected conclusions visibly change.
 
 ## Run it
 
@@ -56,7 +56,7 @@ field-signal> /conflicts                   # three duct offsets, none measured
 field-signal> /load demo/rfi-04.json       # the architect answers
 ```
 
-`/load` computes the difference between revision 0 and revision 1 and prints
+`/load` creates revision 2 from revision 1, computes the difference and prints
 it. The fixture is deliberately messy: it **closes** two unknowns (the
 architect confirms the shift; the access panel is fixed), **opens** one that
 did not previously exist (24 in clear north of the panel, which hangs off the
@@ -64,9 +64,48 @@ still-disputed duct offset and is therefore marked *premise contested*), and
 leaves the recommendation at **HOLD for a different set of reasons**. A fixture
 that resolved everything cleanly would rehearse well and prove nothing.
 
-`/rev 0` returns to the earlier revision — nothing is deleted, so every
-revision stays computable. `/watch` reloads `data/*.json` on change and prints
-the delta without a command being typed.
+`/rev 1` returns to the earlier revision — nothing is deleted, so every
+revision stays computable. `/watch` reloads on change and prints the delta
+without a command being typed.
+
+## Adding your own evidence
+
+```
+field-signal> /agent path/to/documents/          # CLI
+```
+
+or the **Add evidence** sheet in the browser: drop in any number of files, of
+any type. They are read inside a disposable Docker container that identifies
+each format from its contents rather than its extension (`examples/`), and the
+claims it extracts become a new revision.
+
+Requires Docker and `OPENAI_API_KEY` in `.env`. Without them it reports a
+failure and writes nothing.
+
+### How revisions work
+
+Each revision is a directory — `data/v1`, `data/v2`, … — holding a complete
+ledger. Selecting one swaps the whole ledger, so every view shows that
+revision rather than the newest set filtered down.
+
+A new revision is built from **the revision you have selected** plus what was
+added, and takes the next free number:
+
+| selected | you add evidence | you get |
+|---|---|---|
+| v1 (only revision) | → | v2 = v1 + new |
+| v1, with v2 present | → | v3 = **v1** + new |
+| v2 | → | v3 = v2 + new |
+
+So going back to an earlier revision and adding evidence branches from there,
+without destroying what came after. Claims are deduplicated by id *and* by
+source, locator, subject, predicate and value — the agent re-reads a packet on
+every run and does not reproduce ids, so re-adding the same evidence adds
+nothing.
+
+Agent output is a model's proposal. It always lands in a new revision to be
+compared against the one before it, never as an edit to a revision you have
+already read.
 
 `demo/rfi-04.json` is labelled in its own header as **not packet evidence**.
 
@@ -83,14 +122,15 @@ the delta without a command being typed.
 | `/people` | the authority matrix, each capability cited to the primer |
 | `/sources` | provenance, including documents cited but not supplied |
 | `/graph` | the dependency tree under the decision |
-| `/load <file>` · `/diff [a] [b]` · `/rev <n>` | revisions |
+| `/agent <path>…` | read files of any type into a new revision |
+| `/load <file>` · `/diff [a] [b]` · `/rev <n>` · `/revisions` | revisions |
 | `/verify` | every claim's support text against its real document |
 | `/watch` · `/help` · `/quit` | |
 
 ## Verification
 
 ```bash
-.venv/bin/python -m pytest tests -q          # 58 tests
+.venv/bin/python -m pytest tests -q          # 80 tests
 .venv/bin/python -m pytest examples/tests -q # 7 tests, ingestion experiment
 npm --prefix web test                        # 7 tests, tooltip escaping
 .venv/bin/python -m field_signal "/verify"   # 75 claims vs the real documents
@@ -179,8 +219,17 @@ full. Thin coverage is a scoping decision only when it is declared.
 6. **`/watch` polls mtimes twice a second** on a daemon thread. Output can
    interleave with a half-typed command.
 7. **The web server is single-process and has no auth.** It binds
-   `127.0.0.1`, holds state in memory, and `/api/load` mutates that state for
-   everyone connected. Fine for a local review, wrong for anything shared.
+   `127.0.0.1`, and `/api/load`, `/api/select` and `/api/agent` change what
+   everyone connected sees. `/api/agent` runs a container and writes to disk on
+   an unauthenticated request. Fine for a local review, wrong for anything
+   shared.
+9. **The agent's output is only as good as the model.** Its claims are
+   validated for shape and checked by `/verify` against the uploaded file, but
+   nothing checks that it read the document *correctly*, or that it did not
+   miss a claim. This is the same completeness gap as the hand transcription,
+   now automated and therefore easier to trust than it deserves.
+10. **Uploads accumulate.** `uploads/vN` is never pruned, and the whole
+    multipart body is held in memory (200 MB cap).
 8. **The 3D graph needs WebGL.** Without it the canvas is blank and the rest
    of the app still works. Labels can overlap where several nodes share a DAG
    level; drag or switch to free float to separate them.
@@ -204,10 +253,11 @@ full. Thin coverage is a scoping decision only when it is declared.
 |---|---|
 | `field_signal/` | the engine, the CLI and the JSON API — see `ARCHITECTURE.md` |
 | `web/` | the Vue front end |
-| `data/` | the evidence ledger: people, sources, claims |
+| `data/v1`, `data/v2`, … | one complete evidence ledger per revision |
+| `uploads/vN` | files added via the agent, kept so their claims stay checkable |
 | `demo/rfi-04.json` | demo fixture, **not packet evidence** |
 | `examples/` | a separate containerized ingestion experiment, not wired into the product |
-| `tests/` | 58 tests, named after the risk each prevents |
+| `tests/` | 80 tests, named after the risk each prevents |
 | `docs/superpowers/specs/` | the design, written before the code |
 | `docs/decision-journal.md` | the path actually taken |
 | `docs/ai-work-log.md` | what was delegated, what was rejected |
