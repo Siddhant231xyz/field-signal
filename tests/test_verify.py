@@ -32,7 +32,7 @@ def test_image_claims_are_skipped_not_silently_passed(rows):
 
 def test_a_drifted_support_string_is_reported(tmp_path):
     """The check has to be able to fail, or it proves nothing."""
-    shutil.copytree("data", tmp_path / "data")
+    shutil.copytree("data/v1", tmp_path / "data")
     claims = (tmp_path / "data" / "claims.json").read_text(encoding="utf-8")
     (tmp_path / "data" / "claims.json").write_text(
         claims.replace("I did not lay out the final head.", "I laid out the final head."),

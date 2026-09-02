@@ -10,18 +10,50 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import re
+import tempfile
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import render
+from .agent import AgentError, ingest
 from .diff import diff
 from .graph import Conclusions, conclusions
-from .model import Ledger, ValidationError, load_fixture, load_ledger
+from .model import (
+    DATA_ROOT,
+    Ledger,
+    ValidationError,
+    create_revision,
+    load_fixture,
+    load_revision,
+    revision_numbers,
+)
 from .verify import verify
 
 REPO = Path(__file__).resolve().parent.parent
+MAX_UPLOAD = 200_000_000  # ponytail: whole body in memory; stream if this grows
+
+
+def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, bytes]]:
+    """Files out of a multipart/form-data body. Returns [(filename, bytes)].
+
+    `email` and `cgi.FieldStorage` both mangle binary parts, so the boundary is
+    split directly. Parts without a filename are ignored.
+    """
+    match = re.search(r'boundary="?([^";]+)"?', content_type)
+    if not match:
+        raise ValueError("multipart upload has no boundary")
+    sep = b"--" + match.group(1).encode()
+    files: list[tuple[str, bytes]] = []
+    for part in body.split(sep)[1:-1]:
+        head, _, data = part.partition(b"\r\n\r\n")
+        name = re.search(rb'filename="([^"]*)"', head)
+        if not name or not name.group(1):
+            continue
+        files.append((name.group(1).decode("utf-8", "replace"), data[:-2]))
+    return files
 
 
 # --- serialisation --------------------------------------------------------
@@ -271,15 +303,19 @@ def _conclusions(c: Conclusions, ledger: Ledger) -> dict:
     }
 
 
-def payload(ledger: Ledger, loaded: list[str] | None = None) -> dict:
-    views = {r: conclusions(ledger.at(r)) for r in range(ledger.max_revision() + 1)}
+def payload(ledgers: dict[int, Ledger], selected: int) -> dict:
+    """Every revision, plus the ledger of the selected one.
+
+    The ledger is per-revision on purpose: selecting v1 has to show v1's claims
+    everywhere, not the newest set filtered down.
+    """
     return {
-        "current": ledger.max_revision(),
-        "loaded": loaded or [],
-        "ledger": _ledger(ledger),
+        "current": selected,
         "revisions": {
-            str(r): _conclusions(v, ledger.at(r)) for r, v in sorted(views.items())
+            str(n): _conclusions(conclusions(l), l) for n, l in sorted(ledgers.items())
         },
+        "ledger": _ledger(ledgers[selected]),
+        "ledgers": {str(n): _ledger(l) for n, l in sorted(ledgers.items())},
     }
 
 
@@ -288,43 +324,61 @@ def payload(ledger: Ledger, loaded: list[str] | None = None) -> dict:
 
 @dataclass
 class Api:
-    """One ledger, its revisions, and the operations the CLI exposes."""
+    """Every revision on disk, and the operations the CLI exposes."""
 
-    data_dir: str = "data"
+    data_dir: Path = DATA_ROOT
 
     def __post_init__(self) -> None:
-        self.loaded: list[Path] = []
+        self.data_dir = Path(self.data_dir)
+        self.selected = 0
         self.reload()
 
     def reload(self) -> None:
-        ledger = load_ledger(REPO / self.data_dir)
-        for i, path in enumerate(self.loaded, start=1):
-            ledger.merge(load_fixture(path), revision=i)
-        self.ledger = ledger
-        self.views = {r: conclusions(ledger.at(r)) for r in range(ledger.max_revision() + 1)}
+        self.ledgers = {
+            n: load_revision(self.data_dir, n) for n in revision_numbers(self.data_dir)
+        }
+        self.views = {n: conclusions(l) for n, l in self.ledgers.items()}
+        if self.selected not in self.views:
+            self.selected = max(self.views)
+
+    @property
+    def ledger(self) -> Ledger:
+        return self.ledgers[self.selected]
 
     def state(self) -> dict:
-        return payload(self.ledger, [str(p) for p in self.loaded])
+        return payload(self.ledgers, self.selected)
+
+    def select(self, n: int) -> dict:
+        if n not in self.views:
+            raise ValueError(f"revisions available: {sorted(self.views)}")
+        self.selected = n
+        return self.state()
 
     def load(self, raw_path: str) -> dict:
+        """A ledger fixture becomes a new revision off the selected one."""
         path = (REPO / raw_path).resolve()
         if not path.is_relative_to(REPO):
             raise ValueError(f"refusing to read a path outside the repository: {raw_path}")
         if not path.exists():
             raise ValueError(f"no such file: {raw_path}")
-        self.loaded.append(path)
-        try:
-            self.reload()
-        except ValidationError as exc:
-            self.loaded.pop()
-            self.reload()
-            raise ValueError(f"already loaded, or invalid: {exc}") from exc
-        return self.state()
+        return self._new_revision(
+            lambda: create_revision(self.data_dir, self.selected, load_fixture(path))
+        )
 
-    def unload_all(self) -> dict:
-        self.loaded = []
+    def ingest(self, paths: list[Path]) -> dict:
+        """Uploads become a new revision off the selected one."""
+        return self._new_revision(
+            lambda: ingest(paths, root=self.data_dir, base=self.selected)[0]
+        )
+
+    def _new_revision(self, make) -> dict:
+        base = self.selected
+        n = make()
         self.reload()
-        return self.state()
+        self.selected = n
+        state = self.state()
+        state["created"] = {"revision": n, "base": base}
+        return state
 
     def diff(self, a: int, b: int) -> list[dict]:
         if a not in self.views or b not in self.views:
@@ -385,15 +439,36 @@ def make_handler(api: Api, static_dir: Path):
         def do_POST(self) -> None:
             url = urlparse(self.path)
             length = int(self.headers.get("Content-Length", 0))
-            body = json.loads(self.rfile.read(length) or b"{}")
             try:
+                if url.path == "/api/agent":
+                    return self._json(self._ingest(length))
+                body = json.loads(self.rfile.read(length) or b"{}")
                 if url.path == "/api/load":
                     return self._json(api.load(body["path"]))
-                if url.path == "/api/reset":
-                    return self._json(api.unload_all())
-            except (ValueError, KeyError) as exc:
+                if url.path == "/api/select":
+                    return self._json(api.select(int(body["revision"])))
+            except (AgentError, ValidationError, ValueError, KeyError, OSError) as exc:
                 return self._json({"error": str(exc)}, 400)
             return self._json({"error": "not found"}, 404)
+
+        def _ingest(self, length: int) -> dict:
+            """Multipart upload → a new revision. Any number of files, any type."""
+            if length > MAX_UPLOAD:
+                raise ValueError(f"upload exceeds {MAX_UPLOAD // 1_000_000} MB")
+            ctype = self.headers.get("Content-Type", "")
+            if not ctype.startswith("multipart/form-data"):
+                raise ValueError("expected a multipart/form-data upload")
+            files = parse_multipart(self.rfile.read(length), ctype)
+            if not files:
+                raise ValueError("no files in the upload")
+            with tempfile.TemporaryDirectory(prefix="fs-upload-") as tmp:
+                staged = []
+                for name, data in files:
+                    # Basename only: an uploaded name never chooses a path.
+                    target = Path(tmp) / Path(name).name
+                    target.write_bytes(data)
+                    staged.append(target)
+                return api.ingest(staged)
 
         def _static(self, path: str) -> None:
             if not static_dir.exists():

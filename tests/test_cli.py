@@ -33,8 +33,15 @@ def render(app: App, *commands: str) -> str:
 
 
 @pytest.fixture
-def app():
-    return App()
+def data(tmp_path):
+    """A copy, always. /load and /agent write revisions to disk."""
+    shutil.copytree("data", tmp_path / "data")
+    return tmp_path / "data"
+
+
+@pytest.fixture
+def app(data):
+    return App(data_dir=data)
 
 
 def test_brief_leads_with_the_recommendation_and_its_blockers(app):
@@ -87,24 +94,48 @@ def test_sources_flags_documents_cited_but_not_supplied(app):
 
 def test_load_creates_a_revision_and_prints_what_moved(app):
     out = render(app, "/load demo/rfi-04.json")
-    assert "revision 0 → 1" in out
+    assert "revision 2 created from v1" in out
+    assert "revision 1 → 2" in out
     assert "design_confirmed" in out
     assert "unknown_opened" in out
-    assert app.ledger.max_revision() == 1
+    assert app.rev == 2
 
 
-def test_earlier_revisions_stay_computable(app):
+def test_selecting_a_revision_changes_every_view(app):
     render(app, "/load demo/rfi-04.json")
-    out = render(app, "/rev 0", "/brief")
-    assert "revision 0" in out
-    assert "clearance_24in_maintained" not in out
+    out = render(app, "/rev 1", "/brief")
+    assert "revision 1" in out
+    assert "clearance_24in_maintained" not in out  # that question is v2's
+    out = render(app, "/rev 2", "/brief")
+    assert "clearance_24in_maintained" in out
 
 
-def test_a_malformed_edit_keeps_the_last_good_graph(tmp_path):
-    shutil.copytree("data", tmp_path / "data")
-    app = App(data_dir=str(tmp_path / "data"))
+def test_a_new_revision_branches_off_the_selected_one(app):
+    """v1 selected with v2 present: the next revision is v3, built from v1."""
+    render(app, "/load demo/rfi-04.json")  # v2
+    out = render(app, "/rev 1", "/load demo/rfi-04.json")
+    assert "revision 3 created from v1" in out
+    assert app.rev == 3
+    assert "S-05" in app.ledgers[3].sources
+    assert set(app.ledgers[1].claims) < set(app.ledgers[3].claims)
+
+
+def test_revisions_lists_what_is_on_disk(app):
+    render(app, "/load demo/rfi-04.json")
+    out = render(app, "/revisions")
+    assert "v1" in out and "v2" in out
+    assert "75 claims" in out
+
+
+def test_agent_without_paths_explains_itself(app):
+    out = render(app, "/agent")
+    assert "usage: /agent" in out
+    assert "any type" in out
+
+
+def test_a_malformed_edit_keeps_the_last_good_graph(app, data):
     before = app.current.as_dict()
-    (tmp_path / "data" / "claims.json").write_text("{ not json", encoding="utf-8")
+    (data / "v1" / "claims.json").write_text("{ not json", encoding="utf-8")
     buffer = io.StringIO()
     app.console = Console(file=buffer, width=200, no_color=True)
     app.reload()

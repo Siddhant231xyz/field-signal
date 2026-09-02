@@ -6,6 +6,7 @@ its basis, a claim without its citation, a gating edge from an image.
 """
 
 import json
+import shutil
 
 import pytest
 
@@ -14,8 +15,16 @@ from field_signal.web import Api, payload
 
 
 @pytest.fixture(scope="module")
-def api():
-    return Api()
+def data(tmp_path_factory):
+    """A copy, always. A test must never write a revision into the repo."""
+    root = tmp_path_factory.mktemp("repo") / "data"
+    shutil.copytree("data", root)
+    return root
+
+
+@pytest.fixture(scope="module")
+def api(data):
+    return Api(data_dir=data)
 
 
 @pytest.fixture(scope="module")
@@ -28,7 +37,7 @@ def test_payload_is_json_serialisable(state):
 
 
 def test_every_condition_carries_status_and_basis_together(state):
-    for cond in state["revisions"]["0"]["conditions"]:
+    for cond in state["revisions"]["1"]["conditions"]:
         assert cond["status"] in ("met", "unmet", "unknown")
         assert cond["basis"] in ("settled", "contested")
         assert cond["reason"]
@@ -55,7 +64,7 @@ def test_non_gating_claims_are_flagged_for_the_frontend(state):
 
 
 def test_graph_links_a_claim_to_the_condition_it_gates(state):
-    graph = state["revisions"]["0"]["graph"]
+    graph = state["revisions"]["1"]["graph"]
     ids = {n["id"] for n in graph["nodes"]}
     assert "decision:ca_118_direction" in ids
     assert "condition:cost_authorised" in ids
@@ -72,7 +81,7 @@ def test_graph_links_a_claim_to_the_condition_it_gates(state):
 
 def test_no_image_observation_ever_appears_as_a_gating_link(state):
     """The CLI's central constraint must survive the trip to the browser."""
-    graph = state["revisions"]["0"]["graph"]
+    graph = state["revisions"]["1"]["graph"]
     claims = {c["id"]: c for c in state["ledger"]["claims"]}
     for link in graph["links"]:
         if link["kind"] != "supports":
@@ -85,27 +94,38 @@ def test_absent_sources_are_marked_for_the_frontend(state):
     sources = {s["id"]: s for s in state["ledger"]["sources"]}
     assert sources["S-ABS-RECOVERY"]["present"] is False
     assert sources["S-04"]["present"] is True
-    assert state["revisions"]["0"]["absent_bases"]["S-ABS-RECOVERY"] == [
+    assert state["revisions"]["1"]["absent_bases"]["S-ABS-RECOVERY"] == [
         "CL-S01-21",
         "CL-S02-15",
     ]
 
 
 def test_loading_a_fixture_adds_a_revision_and_a_diff(api):
-    api.load("demo/rfi-04.json")
-    state = api.state()
-    assert set(state["revisions"]) == {"0", "1"}
-    assert state["current"] == 1
-    moves = api.diff(0, 1)
-    kinds = {m["kind"] for m in moves}
+    state = api.load("demo/rfi-04.json")
+    assert set(state["revisions"]) == {"1", "2"}
+    assert state["current"] == 2  # the new revision becomes the selected one
+    assert state["created"] == {"revision": 2, "base": 1}
+    kinds = {m["kind"] for m in api.diff(1, 2)}
     assert "unknown_opened" in kinds
     assert "superseded" in kinds
-    assert state["revisions"]["1"]["decision"]["recommendation"] == "HOLD"
+    assert state["revisions"]["2"]["decision"]["recommendation"] == "HOLD"
 
 
-def test_loading_the_same_fixture_twice_is_refused(api):
-    with pytest.raises(ValueError, match="already"):
-        api.load("demo/rfi-04.json")
+def test_selecting_a_revision_swaps_the_whole_ledger(api):
+    """Choosing v1 must show v1's claims everywhere, not a filtered v2."""
+    assert api.state()["current"] == 2
+    v1 = api.select(1)
+    assert v1["current"] == 1
+    assert "CL-S05-01" not in {c["id"] for c in v1["ledger"]["claims"]}
+    v2 = api.select(2)
+    assert "CL-S05-01" in {c["id"] for c in v2["ledger"]["claims"]}
+
+
+def test_loading_the_same_fixture_twice_adds_nothing(api):
+    """Dedup, so a repeated load is a no-op rather than a duplicated ledger."""
+    before = len(api.state()["ledger"]["claims"])
+    after = api.load("demo/rfi-04.json")
+    assert len(after["ledger"]["claims"]) == before
 
 
 def test_load_rejects_a_path_outside_the_repository(api):
@@ -115,15 +135,17 @@ def test_load_rejects_a_path_outside_the_repository(api):
 
 def test_verify_reports_every_claim(api):
     rows = api.verify()
-    assert len(rows) == len(load_ledger().claims) + 5  # the fixture's own claims
+    assert len(rows) == len(api.ledger.claims)
     assert all(r["result"] != "NOT FOUND" for r in rows)
 
 
-def test_payload_helper_matches_the_api(state):
-    assert payload(load_ledger())["revisions"]["0"]["decision"]["recommendation"] == "HOLD"
+def test_payload_helper_matches_the_api(api):
+    built = payload(api.ledgers, 1)
+    assert built["revisions"]["1"]["decision"]["recommendation"] == "HOLD"
+    assert built["current"] == 1
 
 
-def test_static_handler_serves_the_built_frontend(tmp_path):
+def test_static_handler_serves_the_built_frontend(tmp_path, data):
     """A built frontend is served; an unknown path falls back to the SPA."""
     from field_signal.web import make_handler
 
@@ -134,7 +156,7 @@ def test_static_handler_serves_the_built_frontend(tmp_path):
 
     sent = {}
 
-    class Fake(make_handler(Api(), dist)):
+    class Fake(make_handler(Api(data_dir=data), dist)):
         def __init__(self):  # bypass BaseHTTPRequestHandler's socket setup
             pass
 

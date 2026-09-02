@@ -4,23 +4,25 @@ The diff is computed from two revisions of the ledger. It is never authored,
 so it cannot flatter the demo.
 """
 
+import shutil
+
 import pytest
 
 from field_signal.diff import diff
 from field_signal.graph import Basis, Mode, Status, conclusions
-from field_signal.model import load_fixture, load_ledger
+from field_signal.model import create_revision, load_fixture, load_revision
 
 
 @pytest.fixture(scope="module")
-def revisions():
-    ledger = load_ledger()
-    before = conclusions(ledger.at(0))
-    ledger.merge(load_fixture("demo/rfi-04.json"), revision=1)
-    return before, conclusions(ledger.at(1))
+def revisions(tmp_path_factory):
+    root = tmp_path_factory.mktemp("repo") / "data"
+    shutil.copytree("data", root)
+    n = create_revision(root, base=1, added=load_fixture("demo/rfi-04.json"))
+    return conclusions(load_revision(root, 1)), conclusions(load_revision(root, n))
 
 
-def test_identical_revisions_produce_no_movement():
-    c = conclusions(load_ledger())
+def test_identical_revisions_produce_no_movement(revisions):
+    c = revisions[0]
     assert diff(c, c) == ()
 
 

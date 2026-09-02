@@ -1,0 +1,77 @@
+{
+  "people": [
+    {
+      "id": "ben",
+      "name": "Ben Walker",
+      "org": "Cascade Air",
+      "role": "HVAC foreman",
+      "capabilities": [
+        "hvac_installation",
+        "hvac_pricing"
+      ],
+      "capability_basis": "S-00 · People: \"Cascade Air • field installation and HVAC pricing\""
+    },
+    {
+      "id": "luis",
+      "name": "Luis Ortega",
+      "org": "Northline Builders",
+      "role": "Superintendent",
+      "capabilities": [
+        "field_sequencing"
+      ],
+      "capability_basis": "S-00 · Working rules: \"Luis coordinates field sequence but does not approve added subcontract cost.\""
+    },
+    {
+      "id": "maya",
+      "name": "Maya Chen",
+      "org": "Northline Builders",
+      "role": "Project manager",
+      "capabilities": [
+        "contractual_direction",
+        "authorise_added_cost"
+      ],
+      "capability_basis": "S-00 · Working rules: \"Maya issues contractual direction to subcontractors. Added cost above $2,000 requires Maya’s written authorisation before Northline treats it as approved.\""
+    },
+    {
+      "id": "nina",
+      "name": "Nina Alvarez",
+      "org": "Timberline Fixtures",
+      "role": "Millwork PM",
+      "capabilities": [
+        "millwork_delivery_coordination"
+      ],
+      "capability_basis": "S-00 · People: \"Timberline Fixtures • custom casework and delivery coordination\""
+    },
+    {
+      "id": "omar",
+      "name": "Omar Ellis",
+      "org": "Sentinel Fire",
+      "role": "Fire-protection foreman",
+      "capabilities": [
+        "sprinkler_installation",
+        "clearance_confirmation"
+      ],
+      "capability_basis": "S-00 · People: \"Sentinel Fire • sprinkler installation and clearance confirmation\""
+    },
+    {
+      "id": "priya",
+      "name": "Priya Shah",
+      "org": "Atelier North",
+      "role": "Project architect",
+      "capabilities": [
+        "design_acceptance"
+      ],
+      "capability_basis": "S-00 · Working rules: \"Priya can confirm design acceptability; she does not approve contractor pricing.\""
+    },
+    {
+      "id": "tasha",
+      "name": "Tasha Reed",
+      "org": "Hawthorne Commons",
+      "role": "Owner representative",
+      "capabilities": [
+        "owner_preference"
+      ],
+      "capability_basis": "S-00 · Working rules: \"Tasha can confirm owner preferences, but she does not directly authorise subcontractor changes.\""
+    }
+  ]
+}

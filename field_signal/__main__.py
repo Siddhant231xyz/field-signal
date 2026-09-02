@@ -14,9 +14,19 @@ from pathlib import Path
 from rich.console import Console
 
 from . import render
+from .agent import AgentError, ingest
 from .diff import diff
 from .graph import Conclusions, conclusions
-from .model import Ledger, ValidationError, load_fixture, load_ledger
+from .model import (
+    DATA_ROOT,
+    Ledger,
+    ValidationError,
+    create_revision,
+    load_fixture,
+    load_revision,
+    revision_dir,
+    revision_numbers,
+)
 from .verify import verify
 
 HELP = """
@@ -29,21 +39,22 @@ HELP = """
   /people             the authority matrix
   /sources            provenance, including documents cited but not supplied
   /graph              the dependency tree under the decision
-  /load <file>        append a source as a new revision, then print the diff
+  /agent <path>...    read files of any type into a new revision off this one
+  /load <file>        add a ledger fixture as a new revision off this one
   /diff [a] [b]       what moved between revisions (defaults to the last two)
-  /rev <n>            render as of revision n
+  /rev <n>            select revision n — every view then shows it
+  /revisions          list the revisions on disk
   /verify             check every claim's support text against its document
-  /watch              toggle live reload of data/*.json
+  /watch              toggle live reload of the selected revision
   /help  /quit
 """
 
 
 class App:
-    def __init__(self, data_dir: str = "data") -> None:
+    def __init__(self, data_dir: str | Path = DATA_ROOT) -> None:
         self.console = Console()
-        self.data_dir = data_dir
-        self.loaded: list[Path] = []
-        self.ledger: Ledger | None = None
+        self.data_dir = Path(data_dir)
+        self.ledgers: dict[int, Ledger] = {}
         self.views: dict[int, Conclusions] = {}
         self.rev = 0
         self.last_view = "/brief"
@@ -54,21 +65,24 @@ class App:
     # --- state ------------------------------------------------------------
 
     def reload(self) -> None:
-        """Rebuild from disk. On a bad edit, keep the last good graph."""
+        """Rebuild every revision from disk. On a bad edit, keep the last good."""
         try:
-            ledger = load_ledger(self.data_dir)
-            for i, path in enumerate(self.loaded, start=1):
-                ledger.merge(load_fixture(path), revision=i)
-            views = {r: conclusions(ledger.at(r)) for r in range(ledger.max_revision() + 1)}
+            ledgers = {n: load_revision(self.data_dir, n) for n in revision_numbers(self.data_dir)}
+            views = {n: conclusions(l) for n, l in ledgers.items()}
         except (ValidationError, OSError, ValueError) as exc:
             self.console.print(f"[red]validation failed — keeping the last good graph[/red]\n{exc}")
             return
-        self.ledger, self.views = ledger, views
-        self.rev = ledger.max_revision()
+        self.ledgers, self.views = ledgers, views
+        if self.rev not in views:
+            self.rev = max(views)
 
     @property
     def current(self) -> Conclusions:
-        return self.views[min(self.rev, max(self.views))]
+        return self.views[self.rev]
+
+    @property
+    def ledger(self) -> Ledger:
+        return self.ledgers[self.rev]
 
     # --- commands ---------------------------------------------------------
 
@@ -112,10 +126,12 @@ class App:
             render.verify_view(self.console, verify(self.ledger))
         elif cmd == "/load":
             self.load(args)
+        elif cmd == "/agent":
+            self.agent(args)
         elif cmd == "/diff":
             self.show_diff(args)
-        elif cmd == "/rev":
-            self.set_rev(args)
+        elif cmd in ("/rev", "/revisions"):
+            self.set_rev(args if cmd == "/rev" else [])
         elif cmd == "/watch":
             self.toggle_watch()
         else:
@@ -130,14 +146,36 @@ class App:
         if not path.exists():
             self.console.print(f"[red]no such file:[/red] {path}")
             return
-        before = self.ledger.max_revision()
-        self.loaded.append(path)
-        self.reload()
-        if self.ledger.max_revision() == before:  # merge refused; undo
-            self.loaded.pop()
-            self.reload()
+        self._new_revision(lambda: create_revision(self.data_dir, self.rev, load_fixture(path)))
+
+    def agent(self, args: list[str]) -> None:
+        if not args:
+            self.console.print("usage: /agent <file-or-directory> [more…]")
+            self.console.print(
+                "[dim]Any number of files, any type. They are read inside a "
+                "disposable container and become a new revision off the one "
+                "you are looking at.[/dim]"
+            )
             return
-        self.show_diff([str(before), str(self.ledger.max_revision())])
+        self.console.print(
+            f"[cyan]reading {len(args)} path(s) into a new revision off v{self.rev}…[/cyan]"
+        )
+        self._new_revision(
+            lambda: ingest([Path(a) for a in args], root=self.data_dir, base=self.rev)[0]
+        )
+
+    def _new_revision(self, make) -> None:
+        """Run `make`, then select the revision it created and show the diff."""
+        base = self.rev
+        try:
+            n = make()
+        except (AgentError, ValidationError, ValueError, OSError) as exc:
+            self.console.print(f"[red]nothing was written[/red]\n{exc}")
+            return
+        self.reload()
+        self.rev = n
+        self.console.print(f"[green]revision {n} created from v{base}[/green]")
+        self.show_diff([str(base), str(n)])
 
     def show_diff(self, args: list[str]) -> None:
         revs = sorted(self.views)
@@ -152,7 +190,13 @@ class App:
 
     def set_rev(self, args: list[str]) -> None:
         if not args:
-            self.console.print(f"revision {self.rev} of {sorted(self.views)}")
+            for n in sorted(self.views):
+                mark = "▶" if n == self.rev else " "
+                d = self.views[n].decision
+                self.console.print(
+                    f" {mark} v{n}  {len(self.ledgers[n].claims):>3} claims  "
+                    f"{d.recommendation} · {d.basis.value}"
+                )
             return
         n = int(args[0])
         if n not in self.views:
@@ -188,7 +232,7 @@ class App:
                 self.run(self.last_view)
 
     def _stamps(self) -> dict[str, float]:
-        paths = list(Path(self.data_dir).glob("*.json")) + self.loaded
+        paths = Path(self.data_dir).glob("v*/*.json")
         return {str(p): p.stat().st_mtime for p in paths if p.exists()}
 
 

@@ -42,28 +42,9 @@ def test_unknown_person_is_a_validation_error(tmp_path):
     assert "unknown person" in str(e.value)
 
 
-def test_reloading_an_existing_source_id_is_refused(tmp_path):
-    """Corrections arrive as a new source, never as an edit to an old one."""
-    ledger = load_ledger()
-    dup = {
-        "sources": [
-            {"id": "S-04", "file": None, "type": "t", "author": "a",
-             "logical_time": "t", "locator_model": "l"}
-        ],
-        "claims": [],
-    }
-    path = tmp_path / "dup.json"
-    path.write_text(json.dumps(dup))
-    with pytest.raises(ValidationError) as e:
-        ledger.merge(load_fixture(path), revision=1)
-    assert "already exists" in str(e.value)
-
-
-def test_revision_slice_excludes_later_sources():
-    ledger = load_ledger()
-    assert ledger.max_revision() == 0
+def test_a_fixture_loads_without_touching_the_packet():
+    """A fixture is a partial ledger; it only becomes evidence via a revision."""
     fixture = load_fixture("demo/rfi-04.json")
-    ledger.merge(fixture, revision=1)
-    assert "S-05" in ledger.sources
-    assert "S-05" not in ledger.at(0).sources
-    assert "S-05" in ledger.at(1).sources
+    assert set(fixture.sources) == {"S-05"}
+    assert len(fixture.claims) == 5
+    assert fixture.people == {}

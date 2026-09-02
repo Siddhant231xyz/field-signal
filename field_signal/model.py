@@ -7,7 +7,7 @@ conclusion — that is `graph.py`. The only I/O is reading the JSON ledger.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -115,14 +115,6 @@ class Ledger:
         revs += [c.revision for c in self.claims.values()]
         return max(revs, default=0)
 
-    def at(self, revision: int) -> Ledger:
-        """The ledger as it stood at `revision`. People are not versioned."""
-        return Ledger(
-            people=dict(self.people),
-            sources={k: v for k, v in self.sources.items() if v.revision <= revision},
-            claims={k: v for k, v in self.claims.items() if v.revision <= revision},
-        )
-
     # --- validation -------------------------------------------------------
 
     def validate(self) -> None:
@@ -147,28 +139,6 @@ class Ledger:
                 problems.append(f"{c.id}: empty support text")
         if problems:
             raise ValidationError(problems)
-
-    # --- construction -----------------------------------------------------
-
-    def merge(self, other: Ledger, revision: int) -> None:
-        """Append a new source and its claims at `revision`.
-
-        A source id that already exists is a validation error, never an
-        overwrite: corrections arrive as a new source that supersedes claims.
-        """
-        problems = [
-            f"source {sid} already exists; corrections must arrive as a new source"
-            for sid in other.sources
-            if sid in self.sources
-        ]
-        problems += [f"claim {cid} already exists" for cid in other.claims if cid in self.claims]
-        if problems:
-            raise ValidationError(problems)
-        for sid, s in other.sources.items():
-            self.sources[sid] = replace(s, revision=revision)
-        for cid, c in other.claims.items():
-            self.claims[cid] = replace(c, revision=revision)
-        self.validate()
 
 
 def _person(d: dict) -> Person:
@@ -215,8 +185,103 @@ def _claim(d: dict) -> Claim:
     )
 
 
-def load_ledger(data_dir: str | Path = "data") -> Ledger:
-    d = Path(data_dir)
+# --- revisions on disk ----------------------------------------------------
+#
+# Each revision is a directory holding a complete ledger: data/v1, data/v2, …
+# A new revision is built from the *selected* revision plus what was added, and
+# takes the next free number — so adding evidence while looking at v1 produces
+# v3 when v2 exists, containing v1 + new rather than v2 + new.
+
+DATA_ROOT = Path(__file__).resolve().parent.parent / "data"
+
+
+def revision_numbers(root: str | Path = DATA_ROOT) -> list[int]:
+    return sorted(
+        int(p.name[1:])
+        for p in Path(root).glob("v*")
+        if p.is_dir() and p.name[1:].isdigit()
+    )
+
+
+def latest_revision(root: str | Path = DATA_ROOT) -> int:
+    revisions = revision_numbers(root)
+    if not revisions:
+        raise ValueError(f"no revision directories under {root}")
+    return revisions[-1]
+
+
+def revision_dir(root: str | Path, n: int) -> Path:
+    return Path(root) / f"v{n}"
+
+
+def load_revision(root: str | Path, n: int) -> Ledger:
+    if n not in revision_numbers(root):
+        raise ValueError(f"unknown revision {n}; have {revision_numbers(root)}")
+    return load_ledger(revision_dir(root, n))
+
+
+def _content_key(claim: Claim) -> tuple[str, ...]:
+    """What makes two claims the same evidence even under different ids.
+
+    The agent re-reads the packet on every run and does not reproduce ids, so
+    identity alone would let a second run duplicate the whole ledger.
+    """
+    return (claim.source, claim.locator, claim.subject, claim.predicate, claim.value)
+
+
+def create_revision(root: str | Path, base: int, added: Ledger) -> int:
+    """Write base + added as the next free revision. Returns its number.
+
+    Nothing is written unless the merged ledger validates, so a bad extraction
+    leaves the existing revisions untouched.
+    """
+    root = Path(root)
+    ledger = load_revision(root, base)
+    n = latest_revision(root) + 1
+
+    ledger.people.update({k: v for k, v in added.people.items() if k not in ledger.people})
+    for sid, source in added.sources.items():
+        if sid not in ledger.sources:
+            ledger.sources[sid] = replace(source, revision=n)
+
+    seen = {_content_key(c) for c in ledger.claims.values()}
+    for cid, claim in sorted(added.claims.items()):
+        if cid in ledger.claims or _content_key(claim) in seen:
+            continue
+        ledger.claims[cid] = replace(claim, revision=n)
+        seen.add(_content_key(claim))
+
+    ledger.validate()
+    _write(ledger, revision_dir(root, n))
+    return n
+
+
+def _write(ledger: Ledger, directory: Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "people.json": {"people": [asdict(p) for _, p in sorted(ledger.people.items())]},
+        "sources.json": {"sources": [asdict(s) for _, s in sorted(ledger.sources.items())]},
+        "claims.json": {
+            "claims": [
+                {
+                    **asdict(c),
+                    "stated_at": c.stated_at.isoformat(),
+                }
+                for _, c in sorted(ledger.claims.items())
+            ]
+        },
+    }
+    for name, data in payload.items():
+        (directory / name).write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+
+
+def load_ledger(data_dir: str | Path | None = None) -> Ledger:
+    """A ledger directory. With no argument, the latest revision."""
+    d = Path(data_dir) if data_dir is not None else revision_dir(
+        DATA_ROOT, latest_revision(DATA_ROOT)
+    )
     ledger = Ledger()
     for p in _person_list(d / "people.json"):
         ledger.people[p.id] = p
