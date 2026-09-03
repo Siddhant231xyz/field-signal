@@ -158,6 +158,23 @@ def test_three_offsets_surface_as_conflict(base):
         assert v in c.reason  # all three shown, no single figure derived
 
 
+def test_superseding_one_conflicting_value_does_not_resolve_the_other_values():
+    ledger = load_ledger(BASE_LEDGER)
+    prior = ledger.claims["CL-S02-07"]
+    ledger.claims["CL-NEW-OFFSET"] = replace(
+        prior,
+        id="CL-NEW-OFFSET",
+        stated_at=prior.stated_at + timedelta(days=1),
+        value="closer to 7 in than 6 in",
+        supersedes=prior.id,
+    )
+
+    result = conclusions(ledger)
+
+    assert result.queues[("duct_offset_west", "distance")].mode is Mode.ASSUMED
+    assert result.conditions["duct_position_established"].status is Status.UNKNOWN
+
+
 def test_rebuttal_edge_survives_queueing(base):
     """Omar's 08:05:52 statement stays a rebuttal, not a row in a list."""
     ledger = load_ledger(BASE_LEDGER)

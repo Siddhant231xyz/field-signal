@@ -191,10 +191,10 @@ def build_queues(ledger: Ledger) -> dict[tuple[str, str], Queue]:
         )
         live = [c for c in claims if c.id not in superseded] or list(claims)
         head = live[0]
-        if head.supersedes in present:
-            mode = Mode.RESOLVED
-        elif any(c.value != head.value for c in live[1:]):
+        if any(c.value != head.value for c in live[1:]):
             mode = Mode.ASSUMED
+        elif head.supersedes in present:
+            mode = Mode.RESOLVED
         else:
             mode = Mode.SINGLE
         queues[key] = Queue(key[0], key[1], tuple(claims), mode, superseded)

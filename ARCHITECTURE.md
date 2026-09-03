@@ -135,9 +135,10 @@ Uploads in, a new revision out. It reads no documents itself.
 
 - `build_queues(ledger)` — groups claims by `(subject, predicate)`, newest
   first. `superseded` collects the targets of `supersedes` edges within the
-  queue; the head is the newest live claim. Mode is `RESOLVED` when the head
-  supersedes a claim in its own queue, `ASSUMED` when a live claim disagrees
-  with the head and nothing declares a resolution, otherwise `SINGLE`.
+  queue; the head is the newest live claim. Mode is `ASSUMED` whenever any
+  remaining live value disagrees with the head. It is `RESOLVED` when the head
+  supersedes a claim in its own queue and no other live disagreement remains,
+  otherwise `SINGLE`. Superseding one claim cannot hide other conflicts.
   Superseded claims stay in the queue — nothing is deleted or mutated.
 - `Evidence` — the read-only facade rules see (`queue`, `head`, `claims`,
   `person`, `source`, `name`, `can`, `cite`).
