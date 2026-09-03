@@ -13,12 +13,15 @@ const host = ref(null)
 const graph = shallowRef(null)
 const selected = ref(null)
 const focus = ref('all')
-const layered = ref(true)
+const layered = ref(false)
+const showAllLinks = ref(false)
 const mode = ref('2d')
+const graphStats = ref({ nodes: 0, links: 0, contested: 0 })
 let graphMode = null
 let graphData = { nodes: [], links: [] }
 let hovered = null
 let neighbours = new Set()
+let visibleNodeIds = null
 let fitted = false
 let palette = {}
 
@@ -57,6 +60,17 @@ const LEGEND = [
 ]
 
 const RELATIONSHIPS = Object.keys(LINK_TOKEN)
+const QUIET_LINKS = new Set(['from_source', 'stated_by', 'cites_basis'])
+const ARROW_LINKS = new Set([
+  'gates',
+  'depends_on',
+  'supports',
+  'supports_exposure',
+  'noted',
+  'exposes',
+  'supersedes',
+  'refutes',
+])
 
 function readTokens() {
   const style = getComputedStyle(document.documentElement)
@@ -97,11 +111,25 @@ function linkColour(link) {
 }
 
 function sizeOf(node) {
-  return { decision: 11, condition: 7, exposure: 6, queue: 5, source: 5, person: 5 }[node.type] ?? 3
+  if (node.type === 'decision') return 18
+  if (node.type === 'queue') return node.status === 'assumed' ? 10 : 6
+  if (node.type === 'claim') return node.feeds_a_conclusion ? 4 : 2.5
+  return { condition: 9, exposure: 8, source: 4, person: 4 }[node.type] ?? 3
 }
 
 function renderRadius(node, globalScale) {
-  const minimumPixels = node.type === 'decision' ? 9 : 6
+  const minimumPixels =
+    node.type === 'decision'
+      ? 12
+      : node.type === 'queue' && node.status === 'assumed'
+        ? 9
+        : node.type === 'claim'
+          ? node.feeds_a_conclusion
+            ? 3.5
+            : 2.25
+          : ['condition', 'exposure'].includes(node.type)
+            ? 7
+            : 4
   return Math.max(sizeOf(node), minimumPixels / globalScale)
 }
 
@@ -111,6 +139,17 @@ function endpointId(endpoint) {
 
 function linkTouches(link, id) {
   return endpointId(link.source) === id || endpointId(link.target) === id
+}
+
+function isQuietLink(link) {
+  return QUIET_LINKS.has(link.kind)
+}
+
+function linkWidth(link) {
+  if (hovered) return linkTouches(link, hovered.id) ? 2.2 : 0.3
+  if (['gates', 'depends_on', 'refutes'].includes(link.kind)) return 1.8
+  if (link.kind === 'in_queue') return 0.8
+  return isQuietLink(link) ? 0.35 : 1
 }
 
 function statusTag(node) {
@@ -166,19 +205,26 @@ function labelVisible(node, globalScale) {
 function paintNode(node, ctx, globalScale) {
   const dimmed = hovered && !neighbours.has(node.id)
   const radius = renderRadius(node, globalScale)
-  const fontPx = node.type === 'decision' ? 14 : 12
+  const fontPx =
+    node.type === 'decision' ? 16 : node.type === 'queue' && node.status === 'assumed' ? 13 : 11
   const fontSize = Math.max(3.5, fontPx / globalScale)
   const label = shortLabel(node)
   const gap = 5 / globalScale
 
   ctx.save()
-  ctx.globalAlpha = dimmed ? 0.13 : 0.96
+  const texture = node.type === 'claim' && !node.feeds_a_conclusion
+  ctx.globalAlpha = dimmed ? 0.1 : texture ? 0.38 : ['source', 'person'].includes(node.type) ? 0.58 : 0.96
   ctx.beginPath()
   ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI)
   ctx.fillStyle = colourOf(node)
   ctx.fill()
 
-  if (selected.value?.id === node.id || hovered?.id === node.id) {
+  if (
+    selected.value?.id === node.id ||
+    hovered?.id === node.id ||
+    node.type === 'decision' ||
+    (node.type === 'queue' && node.status === 'assumed')
+  ) {
     ctx.lineWidth = 2 / globalScale
     ctx.strokeStyle = palette.chalk
     ctx.stroke()
@@ -287,8 +333,8 @@ function create2D() {
       ctx.fill()
     })
     .linkColor(linkColour)
-    .linkWidth((link) => (hovered && linkTouches(link, hovered.id) ? 2.2 : 1.15))
-    .linkDirectionalArrowLength(5)
+    .linkWidth(linkWidth)
+    .linkDirectionalArrowLength((link) => (ARROW_LINKS.has(link.kind) ? 4 : 0))
     .linkDirectionalArrowRelPos(0.94)
     .linkCanvasObjectMode(() => 'after')
     .linkCanvasObject(paintLinkLabel)
@@ -354,6 +400,7 @@ function destroyGraph() {
   graphMode = null
   hovered = null
   neighbours = new Set()
+  visibleNodeIds = null
   if (host.value) host.value.replaceChildren()
 }
 
@@ -364,6 +411,11 @@ function build() {
     nodes: view.value.graph.nodes.map((node) => ({ ...node })),
     links: view.value.graph.links.map((link) => ({ ...link })),
   }
+  graphStats.value = {
+    nodes: graphData.nodes.length,
+    links: graphData.links.length,
+    contested: graphData.nodes.filter((node) => node.type === 'queue' && node.status === 'assumed').length,
+  }
   selected.value = graphData.nodes.find((node) => node.id === selected.value?.id) ?? null
 
   if (!graph.value || graphMode !== mode.value) {
@@ -371,8 +423,24 @@ function build() {
     graphMode = mode.value
     fitted = false
     graph.value = mode.value === '2d' ? create2D() : create3D()
-    graph.value.d3Force('charge').strength(mode.value === '2d' ? -520 : -300)
-    graph.value.d3Force('link').distance(mode.value === '2d' ? 84 : 42)
+    if (mode.value === '2d') {
+      graph.value.d3Force('charge').strength((node) => {
+        if (node.type === 'decision') return -260
+        if (node.type === 'queue') return node.status === 'assumed' ? -180 : -90
+        if (['condition', 'exposure'].includes(node.type)) return -130
+        // 115 claims at -16 collapse into a pinhead; they need room to read
+        // as texture rather than as a single dot.
+        if (node.type === 'claim') return node.feeds_a_conclusion ? -95 : -70
+        return -110
+      })
+      graph.value
+        .d3Force('link')
+        .distance((link) => (link.kind === 'in_queue' ? 34 : isQuietLink(link) ? 110 : 76))
+        .strength((link) => (link.kind === 'in_queue' ? 0.7 : isQuietLink(link) ? 0.015 : 0.18))
+    } else {
+      graph.value.d3Force('charge').strength(-300)
+      graph.value.d3Force('link').distance(42)
+    }
   }
 
   graph.value.graphData(graphData)
@@ -384,7 +452,10 @@ function build() {
 function fitOnce() {
   if (fitted) return
   fitted = true
+  // The clustered sim keeps contracting briefly after its first stop, so a
+  // fit taken at that moment frames a layout that is about to change.
   fit()
+  setTimeout(fit, 700)
 }
 
 function applyLayout() {
@@ -401,13 +472,35 @@ function applyFocus() {
   const wanted = focus.value
   const nodesById = new Map(graphData.nodes.map((node) => [node.id, node]))
   const endpoint = (value) => (typeof value === 'object' ? value : nodesById.get(value))
+  let visible = null
+  if (wanted !== 'all') {
+    const seeds = new Set(
+      graphData.nodes
+        .filter(
+          (node) =>
+            node.type === 'decision' ||
+            (wanted === 'contested'
+              ? node.type === 'queue' && node.status === 'assumed'
+              : node.type === wanted),
+        )
+        .map((node) => node.id),
+    )
+    visible = new Set(seeds)
+    graphData.links.forEach((link) => {
+      if (seeds.has(endpointId(link.source)) || seeds.has(endpointId(link.target))) {
+        visible.add(endpointId(link.source))
+        visible.add(endpointId(link.target))
+      }
+    })
+  }
+  visibleNodeIds = visible
   graph.value
-    .nodeVisibility((node) => wanted === 'all' || node.type === wanted || node.type === 'decision')
+    .nodeVisibility((node) => !visible || visible.has(node.id))
     .linkVisibility((link) => {
-      if (wanted === 'all') return true
-      return [endpoint(link.source), endpoint(link.target)].every(
-        (node) => node && (node.type === wanted || node.type === 'decision'),
-      )
+      if (visible && ![endpoint(link.source), endpoint(link.target)].every((node) => node && visible.has(node.id))) {
+        return false
+      }
+      return wanted !== 'all' || showAllLinks.value || !isQuietLink(link) || Boolean(hovered && linkTouches(link, hovered.id))
     })
 }
 
@@ -420,6 +513,7 @@ function fit() {
   graph.value?.zoomToFit(
     motionDuration(mode.value === '2d' ? 450 : 700),
     mode.value === '2d' ? 110 : 70,
+    (node) => !visibleNodeIds || visibleNodeIds.has(node.id),
   )
 }
 
@@ -440,7 +534,11 @@ onBeforeUnmount(() => {
 
 watch(view, build)
 watch(mode, build)
-watch(focus, applyFocus)
+watch(focus, () => {
+  applyFocus()
+  fit()
+})
+watch(showAllLinks, applyFocus)
 watch(layered, applyLayout)
 watch(selected, () => graph.value?.refresh?.())
 </script>
@@ -465,7 +563,7 @@ watch(selected, () => graph.value?.refresh?.())
         <p class="graph__hint">
           {{
             mode === '2d'
-              ? 'Drag nodes to untangle them, drag the background to pan, and scroll to zoom. Hover isolates immediate evidence.'
+              ? `${graphStats.nodes} nodes · ${graphStats.links} relationships. Drag to pan, scroll to zoom, and hover to isolate immediate evidence.`
               : 'Drag to orbit, scroll to zoom, and click a node to fly to it.'
           }}
         </p>
@@ -473,7 +571,10 @@ watch(selected, () => graph.value?.refresh?.())
           <li v-for="item in LEGEND" :key="item.key">
             <button
               class="legend__item"
-              :class="{ 'legend__item--off': focus !== 'all' && focus !== item.key }"
+              :class="{
+                'legend__item--off':
+                  focus !== 'all' && focus !== item.key && !(focus === 'contested' && item.key === 'queue'),
+              }"
               @click="focus = focus === item.key ? 'all' : item.key"
             >
               <span class="legend__dot" :style="{ background: `var(--${item.token})` }" />
@@ -492,7 +593,17 @@ watch(selected, () => graph.value?.refresh?.())
 
         <div class="graph__actions">
           <button class="btn" :class="{ 'btn--on': layered }" @click="layered = !layered">
-            {{ layered ? 'layered' : 'free float' }}
+            {{ layered ? 'layered' : 'clustered' }}
+          </button>
+          <button
+            class="btn"
+            :class="{ 'btn--on': focus === 'contested' }"
+            @click="focus = focus === 'contested' ? 'all' : 'contested'"
+          >
+            conflicts · {{ graphStats.contested }}
+          </button>
+          <button class="btn" :class="{ 'btn--on': showAllLinks }" @click="showAllLinks = !showAllLinks">
+            {{ showAllLinks ? 'all links' : 'signal links' }}
           </button>
           <button class="btn" @click="focus = 'all'">show all</button>
           <button class="btn" @click="mode = mode === '2d' ? '3d' : '2d'">
@@ -500,8 +611,7 @@ watch(selected, () => graph.value?.refresh?.())
           </button>
         </div>
         <p class="graph__hint graph__hint--last">
-          Claim labels appear on hover or when you zoom in; the structure
-          stays labelled. Status is printed in labels as [MET], [UNMET], [UNKNOWN], [MISSING], or [NON-GATING] — never by colour alone.
+          Claims stay visible as texture. Their labels appear on hover or zoom; provenance appears on hover or in All Links. Status is printed as [MET], [UNMET], [UNKNOWN], [MISSING], [NON-GATING], or [CONTESTED].
         </p>
       </div>
     </div>
@@ -638,6 +748,7 @@ watch(selected, () => graph.value?.refresh?.())
 
 .graph__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 7px;
   margin-top: 14px;
 }
