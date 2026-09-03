@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { actions, store, view } from './store'
+import ChatWidget from './components/ChatWidget.vue'
 import AgentView from './views/AgentView.vue'
 import BriefView from './views/BriefView.vue'
 import GraphView from './views/GraphView.vue'
@@ -149,6 +150,10 @@ onMounted(actions.boot)
       </p>
       <component v-else :is="sheet.view" v-bind="sheet.props ?? {}" :key="sheet.id" />
     </main>
+
+    <!-- Reachable from every sheet: a question about the evidence is asked
+         while looking at something else, not by navigating away from it. -->
+    <ChatWidget v-if="!store.loading && !store.error" />
   </div>
 </template>
 

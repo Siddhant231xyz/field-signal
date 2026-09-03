@@ -20,6 +20,11 @@ const state = reactive({
   fixtures: [],
   verify: null,
   moves: null,
+  chat: {
+    threads: {},
+    pending: {},
+    errors: {},
+  },
 })
 
 async function call(path, options) {
@@ -35,6 +40,12 @@ function apply(payload) {
   state.revisions = payload.revisions
   state.ledgers = payload.ledgers
   state.created = payload.created ?? null
+}
+
+function chatThread(revision) {
+  const key = String(revision)
+  if (!state.chat.threads[key]) state.chat.threads[key] = []
+  return state.chat.threads[key]
 }
 
 async function pollProgress() {
@@ -176,6 +187,48 @@ export const actions = {
     } catch (e) {
       state.error = e.message
     }
+  },
+
+  async askGraph(question) {
+    const content = String(question ?? '').trim()
+    const revision = state.current
+    const key = String(revision)
+    if (!content || state.chat.pending[key]) return false
+    const thread = chatThread(revision)
+    const history = thread.slice(-12).map((message) => ({
+      role: message.role,
+      content: message.content,
+    }))
+    thread.push({ role: 'user', content, revision })
+    state.chat.pending[key] = true
+    state.chat.errors[key] = null
+    try {
+      const result = await call('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revision, question: content, history }),
+      })
+      thread.push({
+        role: 'assistant',
+        content: result.answer,
+        revision: result.revision,
+        citations: result.citations ?? [],
+        conditions: result.conditions ?? [],
+        caveat: result.caveat ?? null,
+      })
+      return true
+    } catch (e) {
+      state.chat.errors[key] = e.message
+      return false
+    } finally {
+      state.chat.pending[key] = false
+    }
+  },
+
+  clearChat(revision = state.current) {
+    const key = String(revision)
+    state.chat.threads[key] = []
+    state.chat.errors[key] = null
   },
 
 

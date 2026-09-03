@@ -145,6 +145,25 @@ def test_payload_helper_matches_the_api(api):
     assert built["current"] == 1
 
 
+def test_chat_response_is_scoped_to_an_explicit_revision(data):
+    seen = {}
+
+    def runner(ledgers, revision, question, history):
+        seen.update(revision=revision, question=question, history=history)
+        return {"revision": revision, "answer": "From the graph", "citations": []}
+
+    api = Api(data_dir=data, chat_runner=runner)
+    result = api.chat(
+        revision=1,
+        question="What blocks the decision?",
+        history=[{"role": "assistant", "content": "Earlier answer"}],
+    )
+
+    assert result["revision"] == 1
+    assert seen["revision"] == 1
+    assert seen["history"][0]["role"] == "assistant"
+
+
 def test_static_handler_serves_the_built_frontend(tmp_path, data):
     """A built frontend is served; an unknown path falls back to the SPA."""
     from field_signal.web import make_handler

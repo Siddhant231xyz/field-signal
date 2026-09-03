@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import render
 from .agent import AgentError, ingest
+from .chat import ChatError, answer_question
 from .diff import diff
 from .graph import Conclusions, conclusions
 from .model import (
@@ -34,6 +35,7 @@ from .verify import verify
 
 REPO = Path(__file__).resolve().parent.parent
 MAX_UPLOAD = 200_000_000  # ponytail: whole body in memory; stream if this grows
+MAX_CHAT_BODY = 100_000
 
 
 def parse_multipart(body: bytes, content_type: str) -> list[tuple[str, bytes]]:
@@ -327,6 +329,7 @@ class Api:
     """Every revision on disk, and the operations the CLI exposes."""
 
     data_dir: Path = DATA_ROOT
+    chat_runner: object = answer_question
 
     def __post_init__(self) -> None:
         self.data_dir = Path(self.data_dir)
@@ -415,6 +418,12 @@ class Api:
     def fixtures(self) -> list[str]:
         return sorted(str(p.relative_to(REPO)) for p in (REPO / "demo").glob("*.json"))
 
+    def chat(self, revision: int, question: str, history: list[dict]) -> dict:
+        """Ask against an explicit revision, independent of mutable selection."""
+        if revision not in self.ledgers:
+            raise ValueError(f"revisions available: {sorted(self.ledgers)}")
+        return self.chat_runner(self.ledgers, revision, question, history)
+
 
 # --- server ---------------------------------------------------------------
 
@@ -462,12 +471,32 @@ def make_handler(api: Api, static_dir: Path):
             try:
                 if url.path == "/api/agent":
                     return self._json(self._ingest(length))
+                if url.path == "/api/chat" and length > MAX_CHAT_BODY:
+                    raise ValueError(
+                        f"chat request exceeds {MAX_CHAT_BODY // 1_000} KB"
+                    )
                 body = json.loads(self.rfile.read(length) or b"{}")
                 if url.path == "/api/load":
                     return self._json(api.load(body["path"]))
                 if url.path == "/api/select":
                     return self._json(api.select(int(body["revision"])))
-            except (AgentError, ValidationError, ValueError, KeyError, OSError) as exc:
+                if url.path == "/api/chat":
+                    return self._json(
+                        api.chat(
+                            int(body["revision"]),
+                            body["question"],
+                            body.get("history", []),
+                        )
+                    )
+            except (
+                AgentError,
+                ChatError,
+                ValidationError,
+                ValueError,
+                KeyError,
+                OSError,
+                json.JSONDecodeError,
+            ) as exc:
                 return self._json({"error": str(exc)}, 400)
             return self._json({"error": "not found"}, 404)
 

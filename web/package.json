@@ -6,10 +6,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/escape.test.mjs"
+    "test": "node --test src/*.test.mjs"
   },
   "dependencies": {
     "3d-force-graph": "1.80.0",
+    "force-graph": "1.51.4",
     "three": "0.185.1",
     "vue": "3.5.42"
   },
