@@ -5,11 +5,30 @@
 | Tool | Used for |
 |---|---|
 | Claude Opus 5, via Claude Code (CLI) | The whole build: packet reading, design, transcription, code, tests, documentation |
+| Codex (GPT-5.x), via the Codex plugin | Delegated: rebuilding the graph view for legibility, and a first pass at the chat backend |
+| `gpt-5.5` in a Docker container | The ingestion agent that turns uploaded documents into claims (`examples/`) |
+| `gpt-5.5`, one call per question | The assistant that answers from a selected revision |
 | `pypdf`, stdlib `zipfile` | Extracting text from the packet PDFs and the workbook so claims could be transcribed verbatim and later re-checked |
 
-No hosted API beyond the Claude Code session. No network calls at runtime. No
-model in the product's runtime path — that was a deliberate product decision,
-not a limitation (see below).
+**This changed, and the change is the most important thing in this log.** The
+original build had no model in the runtime path at all — deliberately, because
+the product's claim is "derived deterministically from cited evidence, and you
+can check every line". Two models are now in that path: one reads uploaded
+documents into claims, one answers questions about a revision.
+
+The claim survives because neither is allowed near the derivation:
+
+* The **derivation is still model-free.** `graph.py` decides what is met,
+  unmet, unknown and contested. Nothing a model produces changes how a
+  conclusion is reached — only what evidence exists to reach it from.
+* Extracted claims are **evidence, checkable like any other**: verbatim support,
+  a locator, `/verify` against the stored upload, and they land in a *new*
+  revision so the previous one stays intact for comparison.
+* The assistant **cannot invent a citation**: claim ids it writes are resolved
+  against the ledger and unknown ones are reported as unsupported.
+
+What is genuinely weaker than before: a model now decides what a document
+says. That is stated as a limitation in the README rather than argued away.
 
 ## What was delegated, and what was not
 
@@ -94,6 +113,52 @@ becomes evidence. That is written up in the spec as deferred, not built.
 - **The images were read by me directly**, not summarised at second hand,
   before writing the two `observation` claims about P-02.
 
+## Delegating to Codex, and what came back
+
+Two pieces were handed to Codex with a written brief: the 3D graph was hard to
+read and hard to zoom, and the chat needed a backend. Both came back working.
+Two things are worth recording.
+
+Its ingestion fix — giving the extractor the canonical queue vocabulary — was
+the right diagnosis of a bug I had not solved, and I verified it against the
+real runs rather than taking it on trust: v1→v2 and v1→v3 moved nothing but "a
+new subject appeared" 49 and 46 times; v1→v4 moved for real. I specifically
+checked it had not over-resolved, because handing a model the vocabulary could
+make it force evidence into predicates. It had not.
+
+Its chat backend worked on the first try — correct answers with real citations
+— but was shaped as a page you navigate to, which was wrong for the job. I
+rewrote the interface and later the whole retrieval approach. Working code in
+the wrong shape is still the expensive kind of wrong.
+
+## Where I was confidently wrong
+
+**The chat latency, twice.** I diagnosed the tool loop as the bottleneck and
+said so with more confidence than the evidence supported. Rewriting to one shot
+did not fix it — 92s became 92s. I then built prompt-cache warming on the same
+kind of reasoning, wired it through the API and the widget, and measured: still
+59s, because the warm call is as slow as the question. A cache-busted cold call
+then returned in under seven seconds, which showed the original numbers were
+provider variance and neither theory was right.
+
+I deleted the warming. The one-shot rewrite stayed, but on a different
+argument than the one I started with: one request instead of up to twelve is
+simpler and less exposed to a slow round trip.
+
+The lesson recorded rather than smoothed over: I measured *after* forming the
+theory both times. The five-run benchmark that finally settled it (median 1.6s,
+one run at 81s) would have taken two minutes at the start.
+
+## One AI output I rejected, more recently
+
+The ingestion agent produced `p_maya` — a person called "Maya" with the
+capability `authorize_or_withhold_ca118` — alongside the packet's `maya`, "Maya
+Chen", who holds `authorise_added_cost` because the primer says so. Accepting
+it would have let a model grant contractual authority by naming someone. People
+are now matched by name at merge time and **the existing person always wins**;
+the model's capability strings are discarded. This is the same principle as
+rejecting the merged duct offset, in a place I had not thought to defend.
+
 ## What I do not fully understand or could not verify
 
 - **Whether the transcription is complete.** The AI and I read every source,
@@ -126,3 +191,15 @@ becomes evidence. That is written up in the spec as deferred, not built.
 3. **Speed.** The claim ledger was produced fast enough that it was not
    painful to get it wrong three times. Cheap rework encourages skipping the
    design step, which is what happened.
+4. **A model now writes evidence.** The ingestion agent produces claims that
+   enter the ledger. Every one carries verbatim support checkable by `/verify`
+   against the uploaded file, and lands in a new revision to be compared rather
+   than editing an existing one — but nothing checks that it read the document
+   *correctly*, or that it did not miss a claim. This is the transcription
+   completeness gap from the original build, now automated and therefore easier
+   to trust than it has earned.
+5. **A model now answers questions about the evidence.** Its citations are
+   resolved against the ledger, so it cannot invent one, and the conclusions it
+   reads are deterministic. Nothing checks that the prose it wrote around them
+   is a fair summary. Every answer is one click from the claims it cited, which
+   is the mitigation rather than a fix.

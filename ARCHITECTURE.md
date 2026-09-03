@@ -16,6 +16,7 @@ rules.py           condition rules — pure functions, no I/O
 graph.py           queues, topological derivation, taint propagation
    │
 diff.py            conclusions(a) vs conclusions(b)
+chat.py            one question, one model call, citations resolved
    │
 render.py          Rich rendering — no logic
 __main__.py        REPL, command dispatch, live reload
@@ -248,8 +249,14 @@ The JSON API and a stdlib `ThreadingHTTPServer`. No web framework.
   mangle binary parts. An uploaded filename is reduced to its basename, so it
   can never choose a path.
 - Routes: `GET /api/state`, `/api/verify`, `/api/fixtures`, `/api/diff?a&b`;
-  `POST /api/load`, `/api/select`, `/api/agent` (multipart). Everything else
-  serves `web/dist` with an SPA fallback.
+  `POST /api/load`, `/api/select`, `/api/agent` (multipart), `/api/chat`,
+  `/api/chat/stream`. Everything else serves `web/dist` with an SPA fallback.
+- `Api.chat_stream` runs the answerer on a thread and carries deltas out
+  through a `queue.Queue`. Collecting them and yielding afterwards would
+  buffer rather than stream, and would pass a naive test — so a test asserts
+  the first delta arrives while the answerer is still blocked.
+- `_sse` writes `event:`/`data:` frames and flushes each one; a reader that
+  navigates away closes the pipe, which is caught and ignored.
 - `payload(ledgers, selected)` sends every revision's conclusions, plus the
   selected revision's ledger — per-revision on purpose, so selecting v1 shows
   v1's claims everywhere.
@@ -269,6 +276,11 @@ Vite + Vue 3, pinned in `package.json` with a lockfile. `3d-force-graph` and
   interpolation, which escapes by default; there is no `v-html` in the app.
 - `src/App.vue` — title-block header, sheet rail, hash routing (`#/graph`), so
   a view can be linked and survives a reload.
+- `src/components/ChatWidget.vue` — the floating assistant: a circular button
+  on every sheet, opening a panel that answers from the selected revision.
+  Consumes `/api/chat/stream` as SSE, appending an empty reply and filling it
+  as deltas arrive. On an unreachable server or a two-minute stall it drops the
+  empty reply, keeps the question in the box, and says which happened.
 - `src/views/` — `BriefView` (verdict, exposures, conditions with `/why`
   drill-in), `GraphView` (3D), `EvidenceView` (queues; also serves
   `/conflicts` via a prop), `UnknownsView`, `ProvenanceView` (people +
@@ -491,9 +503,21 @@ image observation ever appears as a gating link**; absent sources are marked;
 loading a fixture adds a revision and a diff; **selecting a revision swaps the
 whole ledger**, so v1 does not show v2's claims; loading the same fixture twice
 adds nothing, because dedup makes it a no-op; a path outside the repository is
-refused; the static handler serves
+refused; chat streams deltas and then a final payload, **with the first delta
+arriving while the answerer is still working**; a mid-stream failure arrives as
+an error event rather than a dead stream; a busy port explains itself instead
+of tracebacking and `--port` picks another; the static handler serves
 built assets, falls back to the SPA for client routes, and does not escape the
 dist directory on traversal.
+
+`tests/test_chat_oneshot.py` — the context carries every claim's verbatim
+support and the derived conclusions; the prefix is stable per revision and does
+not contain the question (or nothing is cacheable); **an invented claim id is
+caught, not shown**; a claim mentioned twice is cited once; exactly one request
+is made and no tools are offered; the revision blob leads and the question
+comes last; model and effort are pinned; streaming emits deltas and still
+resolves citations; empty questions and unknown revisions are refused before
+any request is made.
 
 `tests/` share one rule: a test copies `data/` before touching it. `/load` and
 `/agent` write revision directories to disk, and a test that mutated the packet
