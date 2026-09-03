@@ -119,137 +119,149 @@ def _ledger(ledger: Ledger) -> dict:
 
 
 def _graph(c: Conclusions, ledger: Ledger) -> dict:
-    """Nodes and links for the 3D view — the same edges the CLI reasons over."""
-    nodes: list[dict] = [
-        {
-            "id": f"decision:{c.decision.id}",
-            "type": "decision",
-            "label": c.decision.label,
-            "status": c.decision.recommendation.lower(),
-            "basis": c.decision.basis.value,
-            "detail": c.decision.question,
-        }
-    ]
+    """The whole revision as nodes and links.
+
+    Everything in the ledger appears: every claim, every person, every source
+    including the ones cited but never supplied. An earlier version carried
+    only the claims a rule happened to read — 49 of 115 — so the picture
+    answered "what feeds the decision" rather than "what is in this revision".
+
+    Queues with more than one claim become nodes too, because that is where
+    agreement, supersession and conflict actually live. A queue of one adds a
+    node and says nothing, so it is left out.
+    """
+    nodes: list[dict] = []
     links: list[dict] = []
-    cited: set[str] = set()
+
+    def node(**kw):
+        nodes.append(kw)
+
+    def link(source, target, kind):
+        links.append({"source": source, "target": target, "kind": kind})
+
+    decision_id = f"decision:{c.decision.id}"
+    node(
+        id=decision_id,
+        type="decision",
+        label=c.decision.label,
+        status=c.decision.recommendation.lower(),
+        basis=c.decision.basis.value,
+        detail=c.decision.question,
+        blocking=list(c.decision.blocking),
+    )
+
+    # Which claims any rule actually read — the spine, still identifiable.
+    feeding = {cid for cond in c.conditions.values() for cid in cond.support}
+    feeding |= {cid for e in c.exposures for cid in e.support}
 
     for cid, cond in sorted(c.conditions.items()):
-        nodes.append(
-            {
-                "id": f"condition:{cid}",
-                "type": "condition",
-                "label": cond.label,
-                "status": cond.status.value,
-                "basis": cond.basis.value,
-                "detail": cond.question,
-            }
+        node(
+            id=f"condition:{cid}",
+            type="condition",
+            label=cond.label,
+            status=cond.status.value,
+            basis=cond.basis.value,
+            detail=cond.reason,
+            question=cond.question,
         )
         if cond.gates:
-            links.append(
-                {
-                    "source": f"condition:{cid}",
-                    "target": f"decision:{c.decision.id}",
-                    "kind": "gates",
-                }
-            )
+            link(f"condition:{cid}", decision_id, "gates")
         for dep in cond.depends_on:
             if dep in c.conditions:
-                links.append(
-                    {"source": f"condition:{cid}", "target": f"condition:{dep}", "kind": "depends_on"}
-                )
+                link(f"condition:{cid}", f"condition:{dep}", "depends_on")
         for claim_id in cond.support:
-            cited.add(claim_id)
-            links.append(
-                {"source": f"claim:{claim_id}", "target": f"condition:{cid}", "kind": "supports"}
-            )
+            link(f"claim:{claim_id}", f"condition:{cid}", "supports")
         for claim_id in cond.notes:
-            cited.add(claim_id)
-            links.append(
-                {"source": f"claim:{claim_id}", "target": f"condition:{cid}", "kind": "noted"}
-            )
+            link(f"claim:{claim_id}", f"condition:{cid}", "noted")
 
     for e in c.exposures:
-        nodes.append(
-            {
-                "id": f"exposure:{e.id}",
-                "type": "exposure",
-                "label": e.label,
-                "status": "exposed",
-                "basis": "settled",
-                "detail": e.detail,
-            }
+        node(
+            id=f"exposure:{e.id}",
+            type="exposure",
+            label=e.label,
+            status="exposed",
+            basis="settled",
+            detail=e.detail,
         )
-        links.append(
-            {"source": f"exposure:{e.id}", "target": f"decision:{c.decision.id}", "kind": "exposes"}
-        )
+        link(f"exposure:{e.id}", decision_id, "exposes")
         for claim_id in e.support:
-            cited.add(claim_id)
-            links.append(
-                {"source": f"claim:{claim_id}", "target": f"exposure:{e.id}", "kind": "supports_exposure"}
-            )
+            link(f"claim:{claim_id}", f"exposure:{e.id}", "supports_exposure")
+
+    # Queues carrying more than one claim: agreement, supersession, conflict.
+    for (subject, predicate), q in sorted(c.queues.items()):
+        if len(q.claims) < 2:
+            continue
+        qid = f"queue:{subject}/{predicate}"
+        node(
+            id=qid,
+            type="queue",
+            label=f"{subject} · {predicate}",
+            status=q.mode.value,
+            basis="contested" if q.mode.value == "assumed" else "settled",
+            detail=(
+                "Resolved on recency alone — nothing in the packet settles it."
+                if q.mode.value == "assumed"
+                else f"{len(q.claims)} claims about the same thing ({q.mode.value})."
+            ),
+            head=q.head.id,
+        )
+        for claim in q.claims:
+            link(f"claim:{claim.id}", qid, "in_queue")
 
     superseded = {cid for q in c.queues.values() for cid in q.superseded}
-    for claim_id in sorted(cited):
-        claim = ledger.claims[claim_id]
-        nodes.append(
-            {
-                "id": f"claim:{claim_id}",
-                "type": "claim",
-                "label": claim_id,
-                "kind": claim.kind,
-                "status": "superseded" if claim_id in superseded else claim.kind,
-                "basis": "settled",
-                "detail": claim.support,
-                "citation": f"{claim.source} {claim.locator}",
-                "gating_allowed": claim.gating_allowed(),
-            }
+    for claim in ledger.claim_list():
+        node(
+            id=f"claim:{claim.id}",
+            type="claim",
+            label=claim.id,
+            kind=claim.kind,
+            status="superseded" if claim.id in superseded else claim.kind,
+            basis="settled",
+            detail=claim.support,
+            citation=f"{claim.source} {claim.locator}",
+            author=ledger.author_of(claim),
+            subject=claim.subject,
+            predicate=claim.predicate,
+            value=claim.value,
+            stated_at=claim.stated_at.isoformat(),
+            gating_allowed=claim.gating_allowed(),
+            feeds_a_conclusion=claim.id in feeding,
         )
-        links.append({"source": f"source:{claim.source}", "target": f"claim:{claim_id}", "kind": "from_source"})
+        link(f"source:{claim.source}", f"claim:{claim.id}", "from_source")
         if claim.stated_by:
-            links.append(
-                {"source": f"person:{claim.stated_by}", "target": f"claim:{claim_id}", "kind": "stated_by"}
-            )
+            link(f"person:{claim.stated_by}", f"claim:{claim.id}", "stated_by")
         if claim.cites_basis:
-            links.append(
-                {"source": f"claim:{claim_id}", "target": f"source:{claim.cites_basis}", "kind": "cites_basis"}
-            )
-        if claim.supersedes in cited:
-            links.append(
-                {"source": f"claim:{claim_id}", "target": f"claim:{claim.supersedes}", "kind": "supersedes"}
-            )
-        if claim.refutes in cited:
-            links.append(
-                {"source": f"claim:{claim_id}", "target": f"claim:{claim.refutes}", "kind": "refutes"}
-            )
+            link(f"claim:{claim.id}", f"source:{claim.cites_basis}", "cites_basis")
+        if claim.supersedes:
+            link(f"claim:{claim.id}", f"claim:{claim.supersedes}", "supersedes")
+        if claim.refutes:
+            link(f"claim:{claim.id}", f"claim:{claim.refutes}", "refutes")
 
-    used_sources = {l["source"].removeprefix("source:") for l in links if l["kind"] == "from_source"}
-    used_sources |= {l["target"].removeprefix("source:") for l in links if l["kind"] == "cites_basis"}
-    for sid in sorted(used_sources):
-        s = ledger.sources[sid]
-        nodes.append(
-            {
-                "id": f"source:{sid}",
-                "type": "source",
-                "label": sid,
-                "status": "present" if s.present else "absent",
-                "basis": "settled",
-                "detail": s.type,
-                "present": s.present,
-            }
+    for sid, source in sorted(ledger.sources.items()):
+        node(
+            id=f"source:{sid}",
+            type="source",
+            label=sid,
+            status="present" if source.present else "absent",
+            basis="settled",
+            detail=source.type
+            + ("" if source.present else " — cited but never supplied"),
+            present=source.present,
+            author=source.author,
+            limitations=list(source.limitations),
         )
 
-    used_people = {l["source"].removeprefix("person:") for l in links if l["kind"] == "stated_by"}
-    for pid in sorted(used_people):
-        p = ledger.people[pid]
-        nodes.append(
-            {
-                "id": f"person:{pid}",
-                "type": "person",
-                "label": p.name,
-                "status": "authorised" if "authorise_added_cost" in p.capabilities else "advisory",
-                "basis": "settled",
-                "detail": f"{p.role} · {p.org}",
-            }
+    for pid, person in sorted(ledger.people.items()):
+        node(
+            id=f"person:{pid}",
+            type="person",
+            label=person.name,
+            status="authorised" if "authorise_added_cost" in person.capabilities else "advisory",
+            basis="settled",
+            detail=f"{person.role} · {person.org}",
+            capabilities=list(person.capabilities),
+            # not `basis`: that means settled/contested on every other node
+            capability_basis=person.capability_basis,
         )
 
     known = {n["id"] for n in nodes}

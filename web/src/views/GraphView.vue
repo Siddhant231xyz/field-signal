@@ -25,6 +25,7 @@ let palette = {}
 const NODE_TOKEN = {
   decision: 'chalk',
   exposure: 'exposed',
+  queue: 'met',
   claim: 'cyan',
   source: 'chalk-dim',
   person: 'contested',
@@ -42,12 +43,14 @@ const LINK_TOKEN = {
   cites_basis: 'contested',
   supersedes: 'met',
   refutes: 'contested',
+  in_queue: 'met',
 }
 
 const LEGEND = [
   { key: 'decision', label: 'the decision', token: 'chalk' },
   { key: 'condition', label: 'conditions ahead of her', token: 'unknown' },
   { key: 'exposure', label: 'already true', token: 'exposed' },
+  { key: 'queue', label: 'claims about one thing', token: 'met' },
   { key: 'claim', label: 'claims', token: 'cyan' },
   { key: 'source', label: 'sources', token: 'chalk-dim' },
   { key: 'person', label: 'people', token: 'contested' },
@@ -83,6 +86,7 @@ function tokenColour(name) {
 function colourOf(node) {
   if (node.type === 'condition') return tokenColour(node.status || 'unknown')
   if (node.type === 'source' && node.present === false) return palette.unmet
+  if (node.type === 'queue') return tokenColour(node.status === 'assumed' ? 'contested' : 'met')
   if (node.type === 'claim' && node.gating_allowed === false) return palette.unknown
   return tokenColour(NODE_TOKEN[node.type] || 'chalk-dim')
 }
@@ -93,7 +97,7 @@ function linkColour(link) {
 }
 
 function sizeOf(node) {
-  return { decision: 11, condition: 7, exposure: 6, source: 5, person: 5 }[node.type] ?? 4
+  return { decision: 11, condition: 7, exposure: 6, queue: 5, source: 5, person: 5 }[node.type] ?? 3
 }
 
 function renderRadius(node, globalScale) {
@@ -112,6 +116,7 @@ function linkTouches(link, id) {
 function statusTag(node) {
   if (node.type === 'condition' && node.status) return `[${node.status.toUpperCase()}] `
   if (node.type === 'source' && node.present === false) return '[MISSING] '
+  if (node.type === 'queue' && node.status === 'assumed') return '[CONTESTED] '
   if (node.type === 'claim' && node.gating_allowed === false) return '[NON-GATING] '
   return ''
 }
@@ -144,6 +149,20 @@ function setHover(node) {
   graph.value?.refresh?.()
 }
 
+/* Claims are 115 of the 166 nodes. Labelling every one at rest buries the
+   structure the graph exists to show, so a claim earns its label by being
+   hovered, selected, part of what you are hovering, or zoomed into. Everything
+   structural — the decision, conditions, exposures, queues, sources, people —
+   stays labelled always. */
+const ALWAYS_LABELLED = new Set(['decision', 'condition', 'exposure', 'queue', 'person'])
+
+function labelVisible(node, globalScale) {
+  if (ALWAYS_LABELLED.has(node.type)) return true
+  if (selected.value?.id === node.id || hovered?.id === node.id) return true
+  if (hovered && neighbours.has(node.id)) return true
+  return globalScale >= 1.6
+}
+
 function paintNode(node, ctx, globalScale) {
   const dimmed = hovered && !neighbours.has(node.id)
   const radius = renderRadius(node, globalScale)
@@ -163,6 +182,11 @@ function paintNode(node, ctx, globalScale) {
     ctx.lineWidth = 2 / globalScale
     ctx.strokeStyle = palette.chalk
     ctx.stroke()
+  }
+
+  if (!labelVisible(node, globalScale)) {
+    ctx.restore()
+    return
   }
 
   ctx.font = `600 ${fontSize}px ${palette.display}`
@@ -476,7 +500,8 @@ watch(selected, () => graph.value?.refresh?.())
           </button>
         </div>
         <p class="graph__hint graph__hint--last">
-          Status is printed in labels as [MET], [UNMET], [UNKNOWN], [MISSING], or [NON-GATING] — never by colour alone.
+          Claim labels appear on hover or when you zoom in; the structure
+          stays labelled. Status is printed in labels as [MET], [UNMET], [UNKNOWN], [MISSING], or [NON-GATING] — never by colour alone.
         </p>
       </div>
     </div>

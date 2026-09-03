@@ -235,12 +235,20 @@ The JSON API and a stdlib `ThreadingHTTPServer`. No web framework.
 - `payload(ledger)` — serialises every revision's conclusions plus the ledger.
   Each condition carries a `display` string produced by `render.status_text`,
   so the browser shows exactly what the terminal shows.
-- `_graph(conclusions, ledger)` — the node/link projection the 3D view draws.
-  Node types: decision, condition, exposure, claim, source, person. Link kinds:
-  gates, depends_on, supports, supports_exposure, noted, exposes, from_source,
-  stated_by, cites_basis, supersedes, refutes. 63 nodes / 127 links at
-  revision 0. Claims carry `gating_allowed`, so the CLI's image constraint is
-  visible in the browser too.
+- `_graph(conclusions, ledger)` — **the whole revision** as nodes and links:
+  every claim, every person, every source including the ones cited but never
+  supplied. An earlier version carried only the claims a rule happened to read
+  — 49 of 115 at v4 — so the picture answered "what feeds the decision" rather
+  than "what is in this revision"; a person and a missing document were absent
+  entirely. 166 nodes / 362 links at v4.
+  Node types: decision, condition, exposure, queue, claim, source, person.
+  Link kinds: gates, depends_on, supports, supports_exposure, noted, exposes,
+  in_queue, from_source, stated_by, cites_basis, supersedes, refutes.
+  Queues appear only where they hold **more than one** claim — that is where
+  agreement, supersession and conflict live; a queue of one adds a node and
+  says nothing. Claims carry `gating_allowed` (the image constraint, visible in
+  the browser) and `feeds_a_conclusion`, so the spine stays identifiable inside
+  the full set.
 - `Api` — every revision on disk plus which one is selected. `load()` and
   `ingest()` both create a new revision branched off the selected one.
   `load()` resolves a path inside the repository and refuses anything outside.

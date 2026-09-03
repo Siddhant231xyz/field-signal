@@ -429,3 +429,108 @@ def _scripted(text):
         }
 
     return answerer
+
+
+# --- the graph carries the whole revision ---------------------------------
+#
+# It used to contain only the claims a rule happened to read — 49 of 115 for
+# v4. Everything else, including a person and a cited-but-missing document,
+# was simply absent, so the picture answered "what feeds the decision" and not
+# "what is in this revision".
+
+
+@pytest.fixture(scope="module")
+def whole(api):
+    return api.state()["revisions"][str(max(api.ledgers))]["graph"]
+
+
+@pytest.fixture(scope="module")
+def whole_ledger(api):
+    return api.ledgers[max(api.ledgers)]
+
+
+def _ids(graph, kind):
+    return {n["id"].split(":", 1)[1] for n in graph["nodes"] if n["type"] == kind}
+
+
+def test_every_claim_is_a_node(whole, whole_ledger):
+    assert _ids(whole, "claim") == set(whole_ledger.claims)
+
+
+def test_every_person_is_a_node(whole, whole_ledger):
+    assert _ids(whole, "person") == set(whole_ledger.people)
+
+
+def test_every_source_is_a_node_including_the_missing_ones(whole, whole_ledger):
+    assert _ids(whole, "source") == set(whole_ledger.sources)
+    absent = [n for n in whole["nodes"] if n["type"] == "source" and not n["present"]]
+    assert absent, "a document cited but not supplied must be visible"
+
+
+def test_a_claim_no_rule_reads_is_present_but_marked(whole, whole_ledger):
+    claims = {n["id"]: n for n in whole["nodes"] if n["type"] == "claim"}
+    feeding = {n for n, c in claims.items() if c["feeds_a_conclusion"]}
+    assert feeding, "the spine is still identifiable"
+    assert len(feeding) < len(claims), "and the rest is there too"
+
+
+def test_claims_carry_their_own_detail(whole):
+    claim = next(n for n in whole["nodes"] if n["id"] == "claim:CL-S01-05")
+    assert claim["author"] == "Omar Ellis"
+    assert claim["citation"] == "S-01 08:05:52"
+    assert claim["kind"] == "assertion"
+    assert claim["subject"] == "sprinkler_head_location"
+    assert claim["detail"] == "I did not lay out the final head."
+
+
+def test_people_carry_what_they_may_decide(whole):
+    maya = next(n for n in whole["nodes"] if n["id"] == "person:maya")
+    assert "authorise_added_cost" in maya["capabilities"]
+    assert "$2,000" in maya["capability_basis"]
+
+
+def test_queues_with_more_than_one_claim_become_nodes(whole, whole_ledger):
+    from field_signal.graph import conclusions
+
+    expected = {
+        f"{q.subject}/{q.predicate}"
+        for q in conclusions(whole_ledger).queues.values()
+        if len(q.claims) > 1
+    }
+    assert _ids(whole, "queue") == expected
+
+
+def test_a_contested_queue_is_marked_as_such(whole):
+    contested = [n for n in whole["nodes"] if n["type"] == "queue" and n["status"] == "assumed"]
+    assert contested, "queues resolved on recency alone must be visible"
+    assert any("duct_offset_west" in n["id"] for n in contested)
+
+
+def test_every_claim_in_a_multi_claim_queue_links_to_it(whole):
+    in_queue = {
+        (l["source"], l["target"]) for l in whole["links"] if l["kind"] == "in_queue"
+    }
+    assert ("claim:CL-S02-07", "queue:duct_offset_west/distance") in in_queue
+    assert ("claim:CL-S04-02", "queue:duct_offset_west/distance") in in_queue
+
+
+def test_every_claim_links_to_its_source_and_author(whole, whole_ledger):
+    from_source = {l["target"] for l in whole["links"] if l["kind"] == "from_source"}
+    assert from_source == {f"claim:{c}" for c in whole_ledger.claims}
+    stated = {l["target"] for l in whole["links"] if l["kind"] == "stated_by"}
+    authored = {f"claim:{c.id}" for c in whole_ledger.claims.values() if c.stated_by}
+    assert stated == authored
+
+
+def test_the_gating_constraint_still_holds_on_the_bigger_graph(whole):
+    """More nodes must not mean a photograph slipped into a gating edge."""
+    claims = {n["id"]: n for n in whole["nodes"] if n["type"] == "claim"}
+    for link in whole["links"]:
+        if link["kind"] == "supports":
+            assert claims[link["source"]]["gating_allowed"]
+
+
+def test_no_link_dangles(whole):
+    known = {n["id"] for n in whole["nodes"]}
+    for link in whole["links"]:
+        assert link["source"] in known and link["target"] in known
