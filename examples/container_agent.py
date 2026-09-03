@@ -149,6 +149,7 @@ def main() -> int:
     if not Path("/packet").is_dir() or not Path("/output").is_dir():
         print("/packet and /output must be mounted directories", file=sys.stderr)
         return 2
+    context = Path("/context") if Path("/context").is_dir() else None
 
     from openai import OpenAI
 
@@ -162,14 +163,16 @@ def main() -> int:
         final_text = run_agent(
             client,
             RootShell(),
-            build_initial_input(),
+            build_initial_input(context_available=context is not None),
             model=args.model,
             effort=args.effort,
             max_tool_calls=args.max_tool_calls,
-            completion_check=lambda: validate_outputs(Path("/output")),
+            completion_check=lambda: validate_outputs(
+                Path("/output"), context_directory=context
+            ),
         )
         print(f"\nAgent result\n{final_text}", flush=True)
-        validate_outputs(Path("/output"))
+        validate_outputs(Path("/output"), context_directory=context)
         print("Container validation passed", flush=True)
         return 0
     except (IngestionError, OSError, subprocess.SubprocessError) as exc:

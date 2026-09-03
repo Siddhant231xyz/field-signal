@@ -120,6 +120,32 @@ def test_branching_from_an_older_revision(root, uploads):
     assert "CL-S90-01" not in v3.claims  # branched off v1, not v2
 
 
+def test_selected_base_is_given_to_a_context_aware_runner(root, uploads):
+    seen = {}
+
+    def context_runner(inputs, output, *, context):
+        seen["people"] = json.loads((context / "people.json").read_text())
+        seen["ontology"] = json.loads((context / "ontology.json").read_text())
+        fake_extractor(LEDGER)(inputs, output)
+
+    agent.ingest([uploads], root=root, base=1, runner=context_runner)
+
+    assert seen["people"] == json.loads((root / "v1" / "people.json").read_text())
+    assert seen["ontology"]["version"] == 1
+    assert "field_review/outcome" in seen["ontology"]["queues"]
+
+
+def test_delta_can_reference_a_person_from_the_selected_base(root, uploads):
+    delta = json.loads(json.dumps(LEDGER))
+    delta["people.json"]["people"] = []
+
+    n, _ = agent.ingest(
+        [uploads], root=root, base=1, runner=fake_extractor(delta)
+    )
+
+    assert load_revision(root, n).claims["CL-S90-01"].stated_by == "omar"
+
+
 def test_an_empty_upload_is_refused(root, tmp_path):
     (tmp_path / "empty").mkdir()
     with pytest.raises(agent.AgentError, match="no files"):

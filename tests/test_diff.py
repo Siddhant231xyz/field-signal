@@ -4,6 +4,7 @@ The diff is computed from two revisions of the ledger. It is never authored,
 so it cannot flatter the demo.
 """
 
+from dataclasses import replace
 import shutil
 
 import pytest
@@ -46,6 +47,23 @@ def test_new_evidence_opens_a_question_that_did_not_exist(revisions):
     closed = {m.id for m in diff(before, after) if m.kind == "unknown_closed"}
     assert opened == {"clearance_24in_maintained"}
     assert closed == {"design_confirmed", "access_panel_located"}
+
+
+def test_canonical_claim_can_open_question_from_any_source(tmp_path):
+    root = tmp_path / "data"
+    shutil.copytree("data/v1", root / "v1")
+    added = load_fixture("demo/rfi-04.json")
+    source = added.sources.pop("S-05")
+    added.sources["S-90"] = replace(source, id="S-90")
+    added.claims = {
+        cid: replace(claim, source="S-90") for cid, claim in added.claims.items()
+    }
+
+    revision = create_revision(root, base=1, added=added)
+
+    assert "clearance_24in_maintained" in conclusions(
+        load_revision(root, revision)
+    ).conditions
 
 
 def test_supersession_is_reported_with_both_claims(revisions):

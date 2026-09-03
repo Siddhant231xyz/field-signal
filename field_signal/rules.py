@@ -16,6 +16,134 @@ from enum import Enum
 from typing import Callable
 
 
+# The extractor sees this alongside the selected ledger. These are application
+# inputs, not expected facts: a queue appearing here never implies that a packet
+# contains a claim for it. Keeping the contract beside its consumers prevents a
+# model from having to reverse-engineer otherwise invisible predicate names.
+INGESTION_CONTRACT = {
+    "version": 1,
+    "purpose": (
+        "Canonical claim queues consumed by deterministic application rules. "
+        "Use a queue only when packet evidence has the described meaning."
+    ),
+    "queues": {
+        "above_ceiling_inspection/date": {
+            "meaning": "Planned or stated date of the above-ceiling inspection."
+        },
+        "access_panel_location/drawing_shows": {
+            "meaning": "What a cited drawing states about the access-panel location."
+        },
+        "access_panel_location/fixed_location": {
+            "meaning": "The current fixed location, or that no location is yet proposed."
+        },
+        "authority_rules/cost_threshold": {
+            "meaning": "Monetary threshold above which written authorisation is required."
+        },
+        "authority_rules/verbal_direction": {
+            "meaning": "Rule limiting when verbal field direction may authorise work."
+        },
+        "ca_118/authorisation": {
+            "meaning": "Whether the added cost has been authorised in writing.",
+            "value_constraints": {
+                "assertion": {"allowed": ["authorised", "not_authorised"]}
+            },
+        },
+        "ca_118/excludes_fire_protection": {
+            "meaning": "Whether the quoted scope excludes fire-protection work."
+        },
+        "ca_118/excludes_redesign": {
+            "meaning": "Whether the quoted scope excludes design or permit revision."
+        },
+        "ca_118/exclusions": {
+            "meaning": "Other work or assumptions excluded from the quoted scope."
+        },
+        "ca_118/owner_cost_belief": {
+            "meaning": "An owner's stated belief about the amount of the cost."
+        },
+        "ca_118/owner_preference": {
+            "meaning": "Owner preference or support, distinct from authorisation."
+        },
+        "ca_118/quoted_amount": {
+            "meaning": "The contractor's quoted monetary amount."
+        },
+        "ca_118/signature": {
+            "meaning": "Whether the change quotation or authorisation is signed."
+        },
+        "clearance_north_of_panel/as_built_verified": {
+            "meaning": "Whether the required clearance was verified against as-built work.",
+            "value_constraints": {
+                "assertion": {"allowed": ["verified", "not_verified"]}
+            },
+        },
+        "clearance_north_of_panel/required_clear": {
+            "meaning": "Required clear dimension north of the access panel."
+        },
+        "crew_availability/answer_deadline": {
+            "meaning": "Deadline for direction before a crew becomes unavailable."
+        },
+        "diffuser_relocation/architect_confirmation_requested": {
+            "meaning": "A request for architectural confirmation of the relocation."
+        },
+        "diffuser_relocation/design_acceptance": {
+            "meaning": "Architectural acceptance or rejection of the proposed relocation.",
+            "value_constraints": {
+                "assertion": {
+                    "prefixes": ["permitted", "not_permitted"]
+                }
+            },
+        },
+        "duct_branch_position/moved": {
+            "meaning": "Whether the duct branch was moved from its prior position."
+        },
+        "duct_branch_position/reversibility": {
+            "meaning": "Whether performed duct work can still be reversed."
+        },
+        "duct_branch_position/submitter_caption": {
+            "meaning": "Submitter's own caption describing the duct position."
+        },
+        "duct_offset_west/distance": {
+            "meaning": "Stated or measured westward duct offset distance."
+        },
+        "duct_offset_west/measurability": {
+            "meaning": "Whether supplied evidence permits the offset to be measured."
+        },
+        "field_direction/standing_direction": {
+            "meaning": "The latest field direction that remains in force."
+        },
+        "field_review/outcome": {
+            "meaning": "Recorded result of a field review that actually occurred."
+        },
+        "field_review/scheduled": {
+            "meaning": "A scheduled field review; this does not prove occurrence."
+        },
+        "luis_marked_photo/currency": {
+            "meaning": "Whether the marked photograph depicts the current condition."
+        },
+        "soffit_close_in/date": {
+            "meaning": "Planned or stated soffit close-in date."
+        },
+        "sprinkler_clearance/assessment": {
+            "meaning": "Fire-protection assessment of clearance at the current layout.",
+            "value_constraints": {
+                "assertion": {"allowed": ["confirmed", "not_confirmed"]}
+            },
+        },
+        "sprinkler_head_location/blocked_by": {
+            "meaning": "Unresolved input preventing final sprinkler-head layout."
+        },
+        "sprinkler_head_location/final_layout": {
+            "meaning": "Whether the final sprinkler-head layout has been completed.",
+            "value_constraints": {
+                "assertion": {"allowed": ["laid_out", "not_laid_out"]}
+            },
+        },
+        "unrecovered_fragment_0811/fragment": {
+            "meaning": "Unintelligible recorded fragment retained without interpretation."
+        },
+    },
+}
+
+
 class Status(str, Enum):
     MET = "met"
     UNMET = "unmet"
@@ -50,6 +178,7 @@ class ConditionSpec:
     depends_on: tuple[str, ...] = ()
     gates: bool = True
     introduced_by: str = "S-00"  # condition exists only once this source does
+    introduced_by_claim: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -182,14 +311,28 @@ def sprinkler_clearance_confirmed(ev) -> RuleResult:
     offset = ev.head("duct_offset_west", "distance")
     support = _ids(layout, assessment, stale, offset)
 
-    if layout is not None and layout.value == "not_laid_out":
+    layout_confirmed = (
+        layout is not None
+        and layout.kind == "assertion"
+        and layout.value == "laid_out"
+    )
+    clearance_confirmed = (
+        assessment is not None
+        and assessment.kind == "assertion"
+        and assessment.value == "confirmed"
+    )
+    if not layout_confirmed or not clearance_confirmed:
+        layout_detail = layout.value if layout is not None else "no final layout"
+        assessment_detail = (
+            assessment.value if assessment is not None else "no clearance assessment"
+        )
         return RuleResult(
             Status.UNKNOWN,
-            f"{ev.name(layout)} has not laid out the final head ({ev.cite(layout)}). His only "
-            f"assessment is an estimate — “{assessment.value}” ({ev.cite(assessment)}) — made "
-            f"against a photograph that {ev.name(stale)} says is out of date "
-            f"({ev.cite(stale)}), and it depends on an offset the packet states three "
-            f"different ways. Fire-protection clearance is genuinely undecided, not pending.",
+            f"The latest final-layout evidence is “{layout_detail}” ({ev.cite(layout)}), "
+            f"and the latest clearance assessment is “{assessment_detail}” "
+            f"({ev.cite(assessment)}). Both an explicitly completed layout and an explicit "
+            f"clearance confirmation are required; conditional, estimated, or missing "
+            f"evidence remains unknown.",
             support,
         )
     return RuleResult(
@@ -321,6 +464,7 @@ CONDITIONS: tuple[ConditionSpec, ...] = (
         rule=clearance_24in_maintained,
         depends_on=("access_panel_located", "duct_position_established"),
         introduced_by="S-05",
+        introduced_by_claim=("clearance_north_of_panel", "required_clear"),
     ),
 )
 

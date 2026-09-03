@@ -7,6 +7,7 @@ conclusion — that is `graph.py`. The only I/O is reading the JSON ledger.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
@@ -229,14 +230,37 @@ def _content_key(claim: Claim) -> tuple[str, ...]:
     return (claim.source, claim.locator, claim.subject, claim.predicate, claim.value)
 
 
-def _same_person(a: str, b: str) -> bool:
-    """"Maya" and "Maya Chen" are one person; "Maya" and "Omar" are not.
+def _tokens(value: str, *, role: bool = False) -> set[str]:
+    tokens = set(re.findall(r"[a-z0-9]+", value.lower()))
+    if role and "pm" in tokens:
+        tokens.remove("pm")
+        tokens.update(("project", "manager"))
+    return tokens
 
-    ponytail: token-subset match. Two different people sharing a first name
-    would collide — needs an explicit identity map if that ever happens.
+
+def _compatible_designation(a: str, b: str, *, role: bool = False) -> bool:
+    x, y = _tokens(a, role=role), _tokens(b, role=role)
+    unknown = {"unknown", "unspecified"}
+    if not x or not y or x & unknown or y & unknown:
+        return False
+    return x <= y or y <= x
+
+
+def _same_person(a: Person, b: Person) -> bool:
+    """A compatible name, organization, and role identify one person.
+
+    The token-subset match accepts abbreviated names and designations, but a
+    shared name never overrides a different employer or role. Ambiguous or
+    unknown designations remain separate.
     """
-    x, y = set(a.lower().split()), set(b.lower().split())
-    return bool(x) and bool(y) and (x <= y or y <= x)
+    x, y = _tokens(a.name), _tokens(b.name)
+    return (
+        bool(x)
+        and bool(y)
+        and (x <= y or y <= x)
+        and _compatible_designation(a.org, b.org)
+        and _compatible_designation(a.role, b.role, role=True)
+    )
 
 
 def replace_authors(added: Ledger, remap: dict[str, str]) -> Ledger:
@@ -264,7 +288,7 @@ def _resolve_people(ledger: Ledger, added: Ledger) -> dict[str, str]:
         if new_id in ledger.people:
             continue
         for old_id, existing in sorted(ledger.people.items()):
-            if _same_person(person.name, existing.name):
+            if _same_person(person, existing):
                 merged[new_id] = old_id
                 break
     return merged
@@ -331,7 +355,9 @@ def _write(ledger: Ledger, directory: Path) -> None:
         )
 
 
-def load_ledger(data_dir: str | Path | None = None) -> Ledger:
+def load_ledger(
+    data_dir: str | Path | None = None, *, validate: bool = True
+) -> Ledger:
     """A ledger directory. With no argument, the latest revision."""
     d = Path(data_dir) if data_dir is not None else revision_dir(
         DATA_ROOT, latest_revision(DATA_ROOT)
@@ -343,7 +369,8 @@ def load_ledger(data_dir: str | Path | None = None) -> Ledger:
         ledger.sources[s.id] = s
     for c in [_claim(x) for x in _read(d / "claims.json", "claims")]:
         ledger.claims[c.id] = c
-    ledger.validate()
+    if validate:
+        ledger.validate()
     return ledger
 
 

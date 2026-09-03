@@ -74,6 +74,9 @@ whole ledger; nothing is filtered.
   Dedup uses it as well as the claim id, because the agent re-reads the packet
   on every run and does not reproduce ids — without it a second run would
   duplicate the whole ledger.
+- Incoming people are matched only when name, organization, and role are all
+  compatible. Name matching alone is deliberately insufficient: two people
+  with the same name but different employers or designations remain separate.
 
 ### `field_signal/agent.py`
 
@@ -82,11 +85,16 @@ Uploads in, a new revision out. It reads no documents itself.
 - `stage(paths, dir)` — copies files (recursing into directories) flat into one
   staging directory, suffixing basename collisions.
 - `ingest(paths, root, base, runner)` — stages, calls `runner`, loads the
-  produced ledger, keeps the uploads under `uploads/vN`, repoints each
+  produced delta ledger, keeps the uploads under `uploads/vN`, repoints each
   generated source at the stored copy so `/verify` can still read the file a
   claim came from, then calls `create_revision`. `runner` defaults to
   `examples/run_containerized.py` (Docker + `OPENAI_API_KEY`) and is injected
   in tests, so the seam is covered without either.
+- Before invoking a context-aware runner, `_prepare_context` copies the exact
+  selected revision into a temporary bundle and adds `ontology.json`, generated
+  from `rules.INGESTION_CONTRACT`. The bundle is mounted read-only. The model
+  can therefore reuse base ids and relationships while the permanent revision
+  remains untouched.
 - Agent output is a model's proposal: it lands in a **new** revision to be
   compared, never as an edit to one already read.
 
@@ -99,15 +107,25 @@ Uploads in, a new revision out. It reads no documents itself.
   the rule actually read; those ids *are* the `supports` edges, materialised at
   derivation time. `notes` holds claim ids that are displayed but may never
   gate (image observations, the unintelligible fragment).
-- `ConditionSpec(id, label, question, rule, depends_on, gates, introduced_by)`.
-  `introduced_by` names the source that brings the condition into existence, so
-  new evidence can add a question that did not previously exist.
+- `ConditionSpec(id, label, question, rule, depends_on, gates, introduced_by,
+  introduced_by_claim)`.
+  `introduced_by` names a source and `introduced_by_claim` can name a canonical
+  claim queue that brings the condition into existence. Claim-based activation
+  keeps source ids from becoming hidden business logic.
+- `INGESTION_CONTRACT` describes every canonical queue consumed by the rules,
+  plus only the kind-specific value constraints that deterministic comparisons
+  require. It is application schema, not evidence or an expected answer, and
+  contains no packet-specific people, dates, amounts, or outcomes.
 - `CONDITIONS` — seven: `cost_authorised`, `access_panel_located`,
   `design_confirmed`, `sprinkler_clearance_confirmed`,
   `duct_position_established`, `field_review_outcome_recorded`, and
   `clearance_24in_maintained` (introduced by `S-05`, absent at v1).
   `cost_authorised` compares the quoted amount against the threshold claim, so
   it is driven by the packet rather than hard-coded to $2,850.
+  `sprinkler_clearance_confirmed` fails closed: it is MET only with an explicit
+  completed-layout assertion and explicit clearance-confirmed assertion;
+  estimates, intentions, conditional statements, and missing evidence remain
+  UNKNOWN.
 - `EXPOSURES` — four sunk facts: work already performed, cost pending and
   larger than the quote, a crew held, the direction in force. Exposures are
   not conditions: rendering them as conditions would imply they are still
@@ -266,11 +284,10 @@ served by `field_signal/web.py`.
 
 ## Standalone ingestion experiment
 
-`examples/` is an isolated experiment for generating the ledger JSON from an
-arbitrary input directory. It is not imported by `field_signal`, and it never
-modifies or supplies runtime data to the existing application. Its default
-input is `packet/`, its generated output is `examples/data/`, and `data/` is
-used only by a host-side evaluator after generation and validation finish.
+`examples/` is a standalone implementation for generating ledger JSON from an
+arbitrary input directory. It can run independently with output in
+`examples/data/`; the application also invokes its host launcher lazily through
+`field_signal.agent`. It never imports packet facts into application code.
 
 ### Execution topology
 
@@ -278,11 +295,13 @@ used only by a host-side evaluator after generation and validation finish.
 host: examples/run_containerized.py
    │  builds and starts an unprivileged Docker container
    │  mounts packet/ read-only at /packet
+   │  optionally mounts selected ledger + ontology read-only at /context
    ▼
 container (UID 0): examples/container_agent.py
    │  OpenAI Responses API agent loop
    │  one custom function tool: shell
    ├── /packet  read-only evidence
+   ├── /context read-only selected revision and consumer vocabulary
    ├── /work    temporary extraction files
    └── /output  staged JSON artifacts
    │
@@ -304,7 +323,7 @@ attachments; there are no format-specific model tools.
 
 ### Discovery and extraction
 
-The host gives the agent only the task and mounted directory, with no extension
+The host gives the agent only the task and mounted directories, with no extension
 routing or reference-output hints. The generic prompt requires it to inventory
 every file recursively, treat extensions as labels, inspect magic bytes and
 container structure with tools such as `file --mime-type`, `xxd`, and
@@ -316,6 +335,13 @@ types, evidence semantics, and completion checks. It contains no packet-specific
 names, expected facts, expected counts, or decision answer. Packet content is
 treated as evidence rather than instructions, and uploaded scripts, macros, and
 executables must not be run.
+
+For revision ingestion, `/context` contains the complete selected base plus
+`ontology.json`. The agent emits only new packet-supported rows: it reuses base
+person and source ids, points citations/supersessions/refutations at existing
+ids, and maps updates to existing or consumer-defined queues. Ontology entries
+do not cause claims to be emitted. This separates stable application vocabulary
+from changing evidence without teaching the prompt a particular document.
 
 `examples/ingest_agent.py` owns the prompt, Responses API tool loop, structural
 validator, and atomic promotion helper. `examples/container_agent.py` owns the
@@ -330,8 +356,10 @@ Output is written to a temporary staging directory first. Validation requires
 exact top-level filenames and object keys, expected field types, unique ids,
 valid person/source/claim references, valid relationship targets, ISO-8601
 timestamps, known claim kinds, and non-empty verbatim support. Invalid output is
-returned to the agent for repair; only valid files are promoted with
-`os.replace`.
+returned to the agent for repair. With context, validation also accepts
+references to base ids, rejects attempts to redefine them, and enforces the
+ontology's kind-specific normalized-value constraints. Only valid files are
+promoted with `os.replace`.
 
 The live `packet/` run completed and passed both container-side and host-side
 validation. It generated 7 people, 13 sources, and 260 claims. Against the
@@ -377,9 +405,10 @@ validation is not written.
 `tests/test_agent.py` — the extractor is stubbed. An upload becomes a new
 revision and leaves the base untouched; uploads are kept and each source points
 at the stored copy so `/verify` can still read it; files of any type stage flat
-and colliding basenames both survive; branching uses the selected revision; an
-empty upload, a failing extractor and an invalid extraction each leave the
-revisions alone.
+and colliding basenames both survive; branching uses the selected revision; a
+context-aware runner receives an ephemeral copy of that revision plus the rule
+ontology; an empty upload, a failing extractor and an invalid extraction each
+leave the revisions alone.
 
 `tests/test_derivation.py` — the risks that matter:
 
@@ -462,9 +491,11 @@ here rather than implied.
 `examples/tests/test_ingest_agent.py` — the standalone prompt contains no known
 packet answers; initial input contains no extension-based routing; generated
 ledgers accept the generic schema and reject dangling or incorrectly typed
-relationships; the Docker command runs as UID 0 without privileged mode and
-mounts `/packet` read-only; the Responses API loop uses GPT-5.5 at high effort
-and returns shell tool output to the model.
+relationships; context validation accepts references to base records, rejects
+redefinitions, and enforces consumer value constraints; the Docker command runs
+as UID 0 without privileged mode and mounts `/packet` and optional `/context`
+read-only; the Responses API loop uses GPT-5.5 at high effort and returns shell
+tool output to the model.
 
 Run: `.venv/bin/python -m pytest tests -q`
 

@@ -34,6 +34,16 @@ The packet is mounted read-only at /packet. You may install packages and use any
 non-interactive command needed to inspect the files. Write final artifacts only
 under /output. Use /work for temporary files.
 
+When /context exists, it is the complete selected base ledger that this new
+evidence will extend. Read all three JSON files there before extracting the new
+packet. Also read /context/ontology.json. It defines the generic claim queues
+and normalized values consumed by the application; it is not evidence and does
+not imply that the packet contains any listed claim. Treat the ledger as the
+canonical identity and source record, and the ontology plus ledger as the
+canonical subject, predicate, value, and relationship vocabulary. Write only
+the delta supported by /packet to /output; never copy context records or the
+ontology into the output.
+
 Outcome
 -------
 Read and account for every file recursively. Respect any supplied source manifest
@@ -57,6 +67,10 @@ Create exactly these UTF-8 JSON files:
    capability_basis. capabilities is a list of normalized capability strings.
    capability_basis is verbatim or directly quoted source support identifying
    the source and locator. Do not infer authority from job title alone.
+   With /context, reuse an existing person id only when name, organization, and
+   role/designation identify the same person. Do not emit that existing person.
+   A shared name alone never establishes identity; emit a new person when the
+   designation differs or identity remains ambiguous.
 
 2. /output/sources.json with {"sources": [...]}.
    Each source has exactly: id, file, type, author, logical_time, locator_model,
@@ -69,6 +83,9 @@ Create exactly these UTF-8 JSON files:
    files and duplicate representations are also not ledger sources. They must
    still be read when they define packet boundaries, canonical sources, hashes,
    or duplication rules.
+   With /context, reuse an existing source id for a cited document already
+   represented there and do not emit a duplicate source. A promised future
+   document is not a cited basis merely because someone intends to create it.
 
 3. /output/claims.json with {"claims": [...]}.
    Each claim requires exactly: id, source, locator, stated_by, stated_at, kind,
@@ -77,8 +94,12 @@ Create exactly these UTF-8 JSON files:
    person id or null. stated_at is ISO-8601. support is verbatim source text, not
    a paraphrase. value is a conservative normalized string used for comparison;
    never make it more precise than the support. subject and predicate are stable,
-   lowercase snake_case concepts derived from the evidence rather than from a
-   fixed project vocabulary.
+   lowercase snake_case concepts. With /context, reuse the existing subject and
+   predicate whenever they represent the same real entity, property, event, or
+   decision. Reuse its value normalization style too. Create a new subject or
+   predicate only for a genuinely new concept, never as a synonym or alternate
+   phrasing of an existing one. Without /context, derive a conservative generic
+   vocabulary from the supplied evidence.
    cites_basis, supersedes, and refutes each hold exactly one string id, never a
    list. Split a claim when genuinely distinct relationships require it.
 
@@ -103,6 +124,9 @@ Evidence rules
   workbook row or activity id, line item, or image id plus region.
 - Preserve explicit citations, rebuttals, corrections, and supersession using
   cites_basis, refutes, and supersedes edges.
+- With /context, point those edges at existing ids when the new evidence cites,
+  rebuts, corrects, resolves, or replaces an existing record. A later completed
+  event should use the existing event predicate rather than a new status synonym.
 - Do not fabricate a person, date, author, approval, amount, measurement, event,
   relationship, or missing document.
 - If extraction is uncertain, preserve the weaker claim and record the source
@@ -115,6 +139,11 @@ source against the generated ledger. Validate all JSON, required keys, unique
 ids, source/person references, relationship targets, timestamps, and non-empty
 support. Check textual support against extracted source text. Inspect supplied
 images directly from the multimodal inputs; use shell for their metadata and OCR.
+When /context exists, verify that every apparent update joins the applicable
+existing or ontology-defined queue and obeys its kind-specific value constraints.
+Do not create a claim merely to fill a queue listed in the ontology. Verify that
+no output id redefines a context record. Sort each output array by id so equivalent
+inputs have a stable serialized order.
 Finish only after all three files exist and the checks pass. Your final response
 should briefly report the file paths and any material uncertainty.
 """
@@ -124,6 +153,13 @@ validated evidence-ledger files under /output according to the contract. Begin b
 inventorying all files and reading any manifest or packet-boundary instructions.
 Do not ask for expected facts or reference output; derive the ledger only from the
 packet. Identify formats from file contents rather than filename extensions."""
+
+CONTEXT_TASK = """The selected base revision is mounted read-only at /context.
+Read /context/people.json, /context/sources.json, /context/claims.json, and
+/context/ontology.json first. Create a delta only: reuse its ids and canonical
+subject/predicate vocabulary for the same concepts, create new concepts only
+when genuinely new, and do not copy its rows. Ontology entries describe consumer
+inputs, not facts; emit them only when the packet supplies supporting evidence."""
 
 SHELL_TOOL = {
     "type": "function",
@@ -180,9 +216,10 @@ class ShellExecution:
         return [{"type": "input_text", "text": self.output}, *self.attachments]
 
 
-def build_initial_input() -> list[dict[str, Any]]:
+def build_initial_input(*, context_available: bool = False) -> list[dict[str, Any]]:
     """The host passes no file-derived hints; discovery belongs to the agent."""
-    return [{"role": "user", "content": USER_TASK}]
+    content = USER_TASK if not context_available else f"{USER_TASK}\n\n{CONTEXT_TASK}"
+    return [{"role": "user", "content": content}]
 
 
 def _response_request(
@@ -290,7 +327,9 @@ def run_agent(
         )
 
 
-def validate_outputs(directory: Path) -> None:
+def validate_outputs(
+    directory: Path, context_directory: Path | None = None
+) -> None:
     problems: list[str] = []
     actual = {path.name for path in directory.iterdir() if path.is_file() and not path.name.startswith(".")}
     expected = set(REQUIRED_OUTPUTS)
@@ -355,6 +394,21 @@ def validate_outputs(directory: Path) -> None:
     person_ids = _unique_ids(people, "person", problems)
     source_ids = _unique_ids(sources, "source", problems)
     claim_ids = _unique_ids(claims, "claim", problems)
+    context_ids = _context_ids(context_directory, problems)
+    consumer_queues = _context_contract(context_directory, problems)
+    for label, ids in (
+        ("person", person_ids),
+        ("source", source_ids),
+        ("claim", claim_ids),
+    ):
+        for duplicate in sorted(ids & context_ids[label]):
+            problems.append(
+                f"{label} id {duplicate!r} already exists in /context; "
+                "emit only the new delta"
+            )
+    all_person_ids = person_ids | context_ids["person"]
+    all_source_ids = source_ids | context_ids["source"]
+    all_claim_ids = claim_ids | context_ids["claim"]
 
     for person in people:
         for field in ("id", "name", "org", "role", "capability_basis"):
@@ -392,12 +446,12 @@ def validate_outputs(directory: Path) -> None:
         source = claim.get("source")
         if not isinstance(source, str):
             problems.append(f"claim {cid}: source must be one string id")
-        elif source not in source_ids:
+        elif source not in all_source_ids:
             problems.append(f"claim {cid}: unknown source {source!r}")
         stated_by = claim.get("stated_by")
         if stated_by is not None and not isinstance(stated_by, str):
             problems.append(f"claim {cid}: stated_by must be one string id or null")
-        elif stated_by is not None and stated_by not in person_ids:
+        elif stated_by is not None and stated_by not in all_person_ids:
             problems.append(f"claim {cid}: unknown person {stated_by!r}")
         kind = claim.get("kind")
         if not isinstance(kind, str) or kind not in CLAIM_KINDS:
@@ -411,19 +465,92 @@ def validate_outputs(directory: Path) -> None:
         cites_basis = claim.get("cites_basis")
         if cites_basis is not None and not isinstance(cites_basis, str):
             problems.append(f"claim {cid}: cites_basis must be one string id")
-        elif cites_basis is not None and cites_basis not in source_ids:
+        elif cites_basis is not None and cites_basis not in all_source_ids:
             problems.append(f"claim {cid}: cites unknown source {cites_basis!r}")
         for relation in ("supersedes", "refutes"):
             target = claim.get(relation)
             if target is not None and not isinstance(target, str):
                 problems.append(f"claim {cid}: {relation} must be one string id")
-            elif target is not None and target not in claim_ids:
+            elif target is not None and target not in all_claim_ids:
                 problems.append(f"claim {cid}: {relation} unknown claim {target!r}")
         if "revision" in claim and not isinstance(claim["revision"], int):
             problems.append(f"claim {cid}: revision must be an integer")
+        _validate_consumer_value(claim, consumer_queues, problems)
 
     if problems:
         raise IngestionError("generated output validation failed:\n- " + "\n- ".join(problems))
+
+
+def _context_ids(
+    directory: Path | None, problems: list[str]
+) -> dict[str, set[str]]:
+    result = {"person": set(), "source": set(), "claim": set()}
+    if directory is None:
+        return result
+    for filename, key, label in (
+        ("people.json", "people", "person"),
+        ("sources.json", "sources", "source"),
+        ("claims.json", "claims", "claim"),
+    ):
+        try:
+            raw = json.loads((directory / filename).read_text(encoding="utf-8"))
+            rows = raw[key]
+            if not isinstance(rows, list):
+                raise TypeError(f"{key} is not an array")
+            result[label] = {
+                row["id"]
+                for row in rows
+                if isinstance(row, dict)
+                and isinstance(row.get("id"), str)
+                and row["id"]
+            }
+        except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            problems.append(f"/context/{filename}: unreadable ledger data: {exc}")
+    return result
+
+
+def _context_contract(
+    directory: Path | None, problems: list[str]
+) -> dict[str, dict[str, Any]]:
+    if directory is None or not (directory / "ontology.json").exists():
+        return {}
+    try:
+        raw = json.loads((directory / "ontology.json").read_text(encoding="utf-8"))
+        queues = raw["queues"]
+        if not isinstance(queues, dict) or not all(
+            isinstance(key, str) and isinstance(value, dict)
+            for key, value in queues.items()
+        ):
+            raise TypeError("queues must be an object of queue definitions")
+        return queues
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        problems.append(f"/context/ontology.json: unreadable consumer contract: {exc}")
+        return {}
+
+
+def _validate_consumer_value(
+    claim: dict[str, Any],
+    queues: dict[str, dict[str, Any]],
+    problems: list[str],
+) -> None:
+    key = f"{claim.get('subject')}/{claim.get('predicate')}"
+    definition = queues.get(key, {})
+    constraints = definition.get("value_constraints", {})
+    kind_constraint = constraints.get(claim.get("kind"), {})
+    if not isinstance(kind_constraint, dict) or not kind_constraint:
+        return
+    value = claim.get("value")
+    if not isinstance(value, str):
+        return
+    allowed = kind_constraint.get("allowed", [])
+    prefixes = kind_constraint.get("prefixes", [])
+    if value in allowed or any(value.startswith(prefix) for prefix in prefixes):
+        return
+    accepted = sorted([*allowed, *(f"{prefix}*" for prefix in prefixes)])
+    problems.append(
+        f"claim {claim.get('id')}: value {value!r} violates consumer contract "
+        f"for {key} {claim.get('kind')}; expected one of {accepted}"
+    )
 
 
 def _validate_keys(

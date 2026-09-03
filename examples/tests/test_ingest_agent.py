@@ -100,6 +100,17 @@ def test_host_input_contains_no_extension_based_file_routing() -> None:
     assert "file contents" in initial_input[0]["content"].lower()
 
 
+def test_context_input_requires_reusing_the_base_ledger_vocabulary() -> None:
+    content = build_initial_input(context_available=True)[0]["content"].lower()
+
+    assert "/context" in content
+    assert "ontology.json" in content
+    assert "delta" in content
+    assert "reuse" in content
+    assert "subject" in content and "predicate" in content
+    assert "genuinely new" in content
+
+
 def test_standalone_validation_accepts_the_generic_contract(tmp_path: Path) -> None:
     _write_valid_ledger(tmp_path)
     validate_outputs(tmp_path)
@@ -129,6 +140,78 @@ def test_standalone_validation_reports_list_relation_without_crashing(
         validate_outputs(tmp_path)
 
 
+def test_context_validation_accepts_references_to_base_ids(tmp_path: Path) -> None:
+    context = tmp_path / "context"
+    output = tmp_path / "output"
+    context.mkdir()
+    output.mkdir()
+    _write_valid_ledger(context)
+    _write_valid_ledger(output)
+
+    (output / "people.json").write_text(
+        json.dumps({"people": []}), encoding="utf-8"
+    )
+    sources = json.loads((output / "sources.json").read_text(encoding="utf-8"))
+    sources["sources"][0].update({"id": "S-NEW", "file": "packet/new.txt"})
+    (output / "sources.json").write_text(json.dumps(sources), encoding="utf-8")
+    claims = json.loads((output / "claims.json").read_text(encoding="utf-8"))
+    claims["claims"][0].update(
+        {"id": "CL-NEW", "source": "S-NEW", "cites_basis": "S-01"}
+    )
+    (output / "claims.json").write_text(json.dumps(claims), encoding="utf-8")
+
+    validate_outputs(output, context_directory=context)
+
+
+def test_context_validation_rejects_redefined_base_ids(tmp_path: Path) -> None:
+    context = tmp_path / "context"
+    output = tmp_path / "output"
+    context.mkdir()
+    output.mkdir()
+    _write_valid_ledger(context)
+    _write_valid_ledger(output)
+
+    with pytest.raises(IngestionError, match="already exists in /context"):
+        validate_outputs(output, context_directory=context)
+
+
+def test_context_validation_enforces_consumer_value_contract(tmp_path: Path) -> None:
+    context = tmp_path / "context"
+    output = tmp_path / "output"
+    context.mkdir()
+    output.mkdir()
+    _write_valid_ledger(context)
+    _write_valid_ledger(output)
+    (context / "ontology.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "queues": {
+                    "review/status": {
+                        "meaning": "Whether review is complete.",
+                        "value_constraints": {
+                            "assertion": {"allowed": ["complete"]}
+                        },
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    claims = json.loads((output / "claims.json").read_text(encoding="utf-8"))
+    claims["claims"][0].update(
+        {"id": "CL-NEW", "source": "S-NEW", "value": "done"}
+    )
+    (output / "claims.json").write_text(json.dumps(claims), encoding="utf-8")
+    (output / "people.json").write_text(json.dumps({"people": []}), encoding="utf-8")
+    sources = json.loads((output / "sources.json").read_text(encoding="utf-8"))
+    sources["sources"][0].update({"id": "S-NEW", "file": "packet/new.txt"})
+    (output / "sources.json").write_text(json.dumps(sources), encoding="utf-8")
+
+    with pytest.raises(IngestionError, match="consumer contract"):
+        validate_outputs(output, context_directory=context)
+
+
 def test_container_runs_as_root_without_privileged_mode(tmp_path: Path) -> None:
     packet = tmp_path / "packet"
     output = tmp_path / "output"
@@ -139,6 +222,18 @@ def test_container_runs_as_root_without_privileged_mode(tmp_path: Path) -> None:
     assert command[command.index("--user") + 1] == "0:0"
     assert "--privileged" not in command
     assert any(value.endswith("dst=/packet,readonly") for value in command)
+
+
+def test_container_mounts_selected_revision_read_only(tmp_path: Path) -> None:
+    packet = tmp_path / "packet"
+    output = tmp_path / "output"
+    work = tmp_path / "work"
+    context = tmp_path / "data" / "v7"
+    args = parse_args(["--image", "test-image", "--context", str(context)])
+
+    command = docker_run_command(args, packet, work, output)
+
+    assert any(value.endswith("dst=/context,readonly") for value in command)
 
 
 def test_agent_loop_uses_gpt_5_5_high_and_returns_tool_output() -> None:

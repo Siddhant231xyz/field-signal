@@ -237,7 +237,12 @@ def conclusions(
     ev = Evidence(ledger, queues)
     tainted = _assumed_heads(queues)
 
-    active = {s.id: s for s in specs if s.introduced_by in ledger.sources}
+    active = {
+        s.id: s
+        for s in specs
+        if s.introduced_by in ledger.sources
+        or (s.introduced_by_claim is not None and s.introduced_by_claim in queues)
+    }
     order = graphlib.TopologicalSorter(
         {sid: set(s.depends_on) & set(active) for sid, s in sorted(active.items())}
     )

@@ -213,3 +213,33 @@ def test_the_merged_identities_are_reported_not_silent(root):
     merged = {}
     create_revision(root, base=1, added=AGENT_OUTPUT, merged_people=merged)
     assert merged == {"p_maya": "maya"}
+
+
+def test_same_name_with_different_designation_is_not_merged(root):
+    different_maya = _person_ledger(
+        people=[
+            dict(
+                id="p_maya_inspector",
+                name="Maya Chen",
+                org="Civic Inspections",
+                role="Building inspector",
+                capabilities=("inspect",),
+                capability_basis="S-99",
+            )
+        ],
+        claims=[
+            dict(
+                id="CL-N-03",
+                stated_by="p_maya_inspector",
+                subject="inspection",
+                predicate="outcome",
+                value="passed",
+            )
+        ],
+    )
+
+    n = create_revision(root, base=1, added=different_maya)
+    revision = load_revision(root, n)
+
+    assert "p_maya_inspector" in revision.people
+    assert revision.claims["CL-N-03"].stated_by == "p_maya_inspector"

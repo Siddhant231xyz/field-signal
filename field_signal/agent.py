@@ -12,12 +12,21 @@ that the reader can compare against the one before it. It never edits one.
 from __future__ import annotations
 
 import inspect
+import json
 import shutil
 import tempfile
 from dataclasses import replace
 from pathlib import Path
 
-from .model import DATA_ROOT, Ledger, create_revision, latest_revision, load_ledger
+from .model import (
+    DATA_ROOT,
+    Ledger,
+    create_revision,
+    latest_revision,
+    load_ledger,
+    revision_dir,
+)
+from .rules import INGESTION_CONTRACT
 
 REPO = Path(__file__).resolve().parent.parent
 UPLOADS = REPO / "uploads"
@@ -27,14 +36,24 @@ class AgentError(RuntimeError):
     pass
 
 
-def _docker_runner(inputs: Path, output: Path, on_line=None) -> None:
+def _docker_runner(
+    inputs: Path, output: Path, *, context: Path, on_line=None
+) -> None:
     """The real extractor. Imported lazily so the CLI runs without it."""
     from examples import run_containerized
 
     run_containerized.ON_LINE = on_line
     try:
         code = run_containerized.main(
-            ["--input", str(inputs), "--output", str(output), "--no-compare"]
+            [
+                "--input",
+                str(inputs),
+                "--context",
+                str(context),
+                "--output",
+                str(output),
+                "--no-compare",
+            ]
         )
     finally:
         run_containerized.ON_LINE = None
@@ -121,6 +140,19 @@ def _repo_relative(path: Path) -> str:
         return str(path)
 
 
+def _prepare_context(root: Path, base: int, destination: Path) -> Path:
+    """Bundle the selected ledger with the vocabulary its consumers require."""
+    source = revision_dir(root, base)
+    if not source.is_dir():
+        raise AgentError(f"unknown base revision v{base}")
+    shutil.copytree(source, destination)
+    (destination / "ontology.json").write_text(
+        json.dumps(INGESTION_CONTRACT, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return destination
+
+
 def ingest(
     paths: list[Path],
     *,
@@ -160,17 +192,21 @@ def ingest(
 def _ingest(paths, root, base, runner, report, on_line, state) -> tuple[int, list[Path]]:
     with tempfile.TemporaryDirectory(prefix="fs-ingest-") as tmp:
         inputs, output = Path(tmp) / "in", Path(tmp) / "out"
+        context = _prepare_context(root, base, Path(tmp) / "context")
         staged = stage(paths, inputs)
         report(phase="staging", files=len(staged))
         output.mkdir()
-        # Ask the signature rather than catching TypeError: a real TypeError
-        # inside a three-argument runner would otherwise run it twice.
-        if len(inspect.signature(runner).parameters) >= 3:
-            runner(inputs, output, on_line)
-        else:
-            runner(inputs, output)
+        parameters = inspect.signature(runner).parameters
+        options = {}
+        if "context" in parameters:
+            options["context"] = context
+        if "on_line" in parameters:
+            options["on_line"] = on_line
+        runner(inputs, output, **options)
         try:
-            added = load_ledger(output)
+            # A delta may refer to people, sources, and claims in the selected
+            # base. Referential validation belongs after the two are combined.
+            added = load_ledger(output, validate=False)
         except (OSError, KeyError, ValueError) as exc:
             raise AgentError(f"the agent produced no usable ledger: {exc}") from exc
 

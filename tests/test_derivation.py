@@ -6,6 +6,8 @@ it should not, the product tells Maya Chen something the packet does not say.
 
 import json
 import random
+from dataclasses import replace
+from datetime import timedelta
 
 import pytest
 
@@ -14,9 +16,12 @@ from field_signal.graph import Basis, Mode, Status, conclusions
 from field_signal.model import Ledger, ValidationError, load_ledger
 
 
+BASE_LEDGER = "data/v1"
+
+
 @pytest.fixture(scope="module")
 def base():
-    return conclusions(load_ledger())
+    return conclusions(load_ledger(BASE_LEDGER))
 
 
 # --- authority ------------------------------------------------------------
@@ -31,7 +36,7 @@ def test_authorisation_unmet_above_threshold(base):
 
 def test_below_threshold_needs_no_written_authorisation():
     """The rule is driven by the threshold, not hard-coded to this quote."""
-    ledger = load_ledger()
+    ledger = load_ledger(BASE_LEDGER)
     cheap = ledger.claims["CL-S04-01"]
     ledger.claims["CL-S04-01"] = type(cheap)(**{**cheap.__dict__, "value": "1200.00"})
     ledger.claims["CL-S02-10"] = type(cheap)(
@@ -52,7 +57,7 @@ def test_owner_support_is_not_authorisation(base):
 
 
 def test_capability_is_read_from_the_packet_not_assumed():
-    ledger = load_ledger()
+    ledger = load_ledger(BASE_LEDGER)
     assert ledger.people["tasha"].can("owner_preference")
     assert not ledger.people["tasha"].can("authorise_added_cost")
     assert ledger.people["maya"].can("authorise_added_cost")
@@ -70,9 +75,27 @@ def test_field_review_outcome_is_unknown_not_false(base):
     assert "did not" not in c.reason.lower()
 
 
+def test_conditional_future_sprinkler_layout_does_not_confirm_clearance():
+    ledger = load_ledger(BASE_LEDGER)
+    prior = ledger.claims["CL-S01-05"]
+    ledger.claims["CL-NEW"] = replace(
+        prior,
+        id="CL-NEW",
+        stated_at=prior.stated_at + timedelta(days=1),
+        kind="intent",
+        value="will_not_be_laid_out_before_access_panel_is_marked",
+        support="I will not lay it out before the access panel is marked.",
+        refutes=None,
+    )
+
+    condition = conclusions(ledger).conditions["sprinkler_clearance_confirmed"]
+
+    assert condition.status is Status.UNKNOWN
+
+
 def test_schedule_row_does_not_assert_occurrence(base):
     """A120 says 'Booked'. A plan is not a receipt."""
-    ledger = load_ledger()
+    ledger = load_ledger(BASE_LEDGER)
     booked = ledger.claims["CL-S03-02"]
     assert booked.kind == "plan"
     # nothing derives MET from a plan claim alone
@@ -86,7 +109,7 @@ def test_schedule_row_does_not_assert_occurrence(base):
 
 
 def test_caption_yields_only_a_statement_claim():
-    ledger = load_ledger()
+    ledger = load_ledger(BASE_LEDGER)
     cap = ledger.claims["CL-PREG-01"]
     assert cap.kind == "caption"
     assert cap.predicate == "submitter_caption"  # a claim about what was said
@@ -97,7 +120,7 @@ def test_caption_yields_only_a_statement_claim():
 
 def test_observation_cannot_gate_compliance():
     """Enforced at edge-creation time, not by convention."""
-    ledger = load_ledger()
+    ledger = load_ledger(BASE_LEDGER)
     rogue = rules.ConditionSpec(
         id="rogue",
         label="compliance from a photograph",
@@ -111,7 +134,7 @@ def test_observation_cannot_gate_compliance():
 
 def test_unintelligible_fragment_gates_nothing(base):
     """08:11:02 is neither used as evidence nor hidden from the reader."""
-    ledger = load_ledger()
+    ledger = load_ledger(BASE_LEDGER)
     frag = ledger.claims["CL-S01-26"]
     assert frag.kind == "unintelligible"
     assert "twenty-four" in frag.value  # kept verbatim
@@ -137,7 +160,7 @@ def test_three_offsets_surface_as_conflict(base):
 
 def test_rebuttal_edge_survives_queueing(base):
     """Omar's 08:05:52 statement stays a rebuttal, not a row in a list."""
-    ledger = load_ledger()
+    ledger = load_ledger(BASE_LEDGER)
     assert ledger.claims["CL-S01-05"].refutes == "CL-S01-03"
     assert ledger.claims["CL-S01-17"].refutes == "CL-S01-16"
     assert "CL-S01-05" in base.rebuttals["CL-S01-03"]
@@ -205,7 +228,7 @@ def test_owner_cost_belief_conflicts_with_the_quote(base):
 
 def test_determinism_under_input_permutation():
     """Shuffle the ledger; the conclusions must be byte-identical."""
-    ledger = load_ledger()
+    ledger = load_ledger(BASE_LEDGER)
     first = json.dumps(conclusions(ledger).as_dict(), sort_keys=True)
     for seed in range(5):
         items = list(ledger.claims.items())

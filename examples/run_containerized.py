@@ -75,6 +75,7 @@ def _env_value(name: str) -> str | None:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, default=ROOT / "packet")
+    parser.add_argument("--context", type=Path)
     parser.add_argument("--output", type=Path, default=EXAMPLES_DIR / "data")
     parser.add_argument("--reference", type=Path, default=ROOT / "data")
     parser.add_argument("--no-compare", action="store_true")
@@ -99,7 +100,7 @@ def docker_run_command(
     work: Path,
     staging: Path,
 ) -> list[str]:
-    return [
+    command = [
         "docker",
         "run",
         "--rm",
@@ -125,10 +126,18 @@ def docker_run_command(
         f"type=bind,src={work.resolve()},dst=/work",
         "--mount",
         f"type=bind,src={staging.resolve()},dst=/output",
-        args.image,
-        "--max-tool-calls",
-        str(args.max_tool_calls),
     ]
+    if args.context is not None:
+        command.extend(
+            [
+                "--mount",
+                f"type=bind,src={args.context.resolve()},dst=/context,readonly",
+            ]
+        )
+    command.extend(
+        [args.image, "--max-tool-calls", str(args.max_tool_calls)]
+    )
+    return command
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -136,6 +145,10 @@ def main(argv: list[str] | None = None) -> int:
     input_dir = args.input.resolve()
     if not input_dir.is_dir():
         print(f"Input directory does not exist: {input_dir}", file=sys.stderr)
+        return 2
+    context_dir = args.context.resolve() if args.context is not None else None
+    if context_dir is not None and not context_dir.is_dir():
+        print(f"Context directory does not exist: {context_dir}", file=sys.stderr)
         return 2
     if not (_env_value("OPENAI_API_KEY") or "").strip() and not args.check_only:
         print("OPENAI_API_KEY is empty in .env", file=sys.stderr)
@@ -178,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise IngestionError(
                     f"containerized agent exited with {completed.returncode}"
                 )
-            validate_outputs(staging)
+            validate_outputs(staging, context_directory=context_dir)
             promote_outputs(staging, args.output.resolve())
 
         print(f"Validated output promoted to {args.output.resolve()}")
