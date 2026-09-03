@@ -308,3 +308,39 @@ _LEDGER = {
          "subject": "sprinkler_head_location", "predicate": "final_layout",
          "value": "laid_out", "support": "Head laid out and dimensioned."}]},
 }
+
+
+# --- serving --------------------------------------------------------------
+
+
+def test_a_busy_port_explains_itself_instead_of_a_traceback(data, capsys):
+    """Running the server twice is a normal mistake, not a stack trace."""
+    import socket
+
+    from field_signal.web import serve
+
+    holder = socket.socket()
+    holder.bind(("127.0.0.1", 0))
+    holder.listen(1)
+    port = holder.getsockname()[1]
+    try:
+        with pytest.raises(SystemExit) as exit_info:
+            serve(port=port, data_dir=data)
+    finally:
+        holder.close()
+
+    captured = capsys.readouterr()  # reading twice clears it — read once
+    message = captured.out + captured.err
+    assert exit_info.value.code == 1
+    assert f"port {port} is already in use" in message
+    assert "--port" in message  # tells you how to get out of it
+
+
+def test_the_port_can_be_chosen_on_the_command_line():
+    from field_signal.web import parse_port
+
+    assert parse_port([]) == 8000
+    assert parse_port(["--port", "9100"]) == 9100
+    assert parse_port(["--port=9100"]) == 9100
+    with pytest.raises(ValueError):
+        parse_port(["--port", "not-a-number"])

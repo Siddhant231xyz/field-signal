@@ -8,9 +8,11 @@ the browser and the terminal cannot drift apart on what a status looks like.
 
 from __future__ import annotations
 
+import errno
 import json
 import mimetypes
 import re
+import sys
 import tempfile
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -535,10 +537,37 @@ def make_handler(api: Api, static_dir: Path):
     return Handler
 
 
-def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
-    api = Api()
+def parse_port(argv: list[str], default: int = 8000) -> int:
+    """--port 9100 or --port=9100."""
+    for i, arg in enumerate(argv):
+        if arg.startswith("--port="):
+            return int(arg.split("=", 1)[1])
+        if arg == "--port":
+            if i + 1 >= len(argv):
+                raise ValueError("--port needs a number")
+            return int(argv[i + 1])
+    return default
+
+
+def serve(host: str = "127.0.0.1", port: int = 8000, data_dir: Path | None = None) -> None:
+    api = Api(data_dir=data_dir) if data_dir else Api()
     static_dir = REPO / "web" / "dist"
-    server = ThreadingHTTPServer((host, port), make_handler(api, static_dir))
+    try:
+        server = ThreadingHTTPServer((host, port), make_handler(api, static_dir))
+    except OSError as exc:
+        if exc.errno != errno.EADDRINUSE:
+            raise
+        # Leaving a server running and starting another is an ordinary
+        # mistake. A stack trace for it tells you nothing you can act on.
+        print(
+            f"port {port} is already in use — Field Signal may still be running "
+            f"in another terminal.\n"
+            f"  stop it:      pkill -f 'field_signal.web'\n"
+            f"  or pick one:  python -m field_signal.web --port 8001",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from None
+
     built = "serving web/dist" if static_dir.exists() else "API only — no built frontend"
     print(f"Field Signal · http://{host}:{port} · {built}")
     print(f"revision {api.ledger.max_revision()} · {len(api.ledger.claims)} claims")
@@ -549,4 +578,4 @@ def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
 
 
 if __name__ == "__main__":
-    serve()
+    serve(port=parse_port(sys.argv[1:]))

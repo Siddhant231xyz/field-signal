@@ -37,6 +37,7 @@ Python 3.11+ (uses `graphlib` and `X | None` annotations).
 npm --prefix web install
 npm --prefix web run build
 .venv/bin/python -m field_signal.web             # http://127.0.0.1:8000
+.venv/bin/python -m field_signal.web --port 8001 # if 8000 is taken
 ```
 
 Node 20+. For frontend development, `npm --prefix web run dev` proxies `/api`
