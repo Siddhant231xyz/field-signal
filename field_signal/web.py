@@ -11,9 +11,11 @@ from __future__ import annotations
 import errno
 import json
 import mimetypes
+import queue
 import re
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -426,6 +428,40 @@ class Api:
             raise ValueError(f"revisions available: {sorted(self.ledgers)}")
         return self.chat_runner(self.ledgers, revision, question, history)
 
+    def chat_stream(self, revision, question, history, answerer=None):
+        """Yield ("delta", text) as the answer arrives, then ("done", payload).
+
+        The whole answer still takes seconds; streaming is about the first
+        token, which is what "slow" actually feels like.
+        """
+        if revision not in self.ledgers:
+            yield "error", {"error": f"revisions available: {sorted(self.ledgers)}"}
+            return
+
+        # The answerer is synchronous and pushes deltas through a callback, so
+        # it runs on its own thread and the queue carries them out as they
+        # arrive. Collecting first and yielding after would buffer, not stream.
+        answerer = answerer or self.chat_runner
+        pipe: queue.Queue = queue.Queue()
+
+        def work():
+            try:
+                pipe.put(("done", answerer(
+                    self.ledgers, revision, question, history,
+                    on_delta=lambda piece: pipe.put(("delta", piece)),
+                )))
+            except Exception as exc:  # surfaced to the client, never a dead stream
+                pipe.put(("error", {"error": str(exc)}))
+
+        worker = threading.Thread(target=work, daemon=True)
+        worker.start()
+        while True:
+            kind, payload = pipe.get()
+            yield kind, payload
+            if kind in ("done", "error"):
+                worker.join(timeout=1)
+                return
+
 
 # --- server ---------------------------------------------------------------
 
@@ -482,6 +518,8 @@ def make_handler(api: Api, static_dir: Path):
                     return self._json(api.load(body["path"]))
                 if url.path == "/api/select":
                     return self._json(api.select(int(body["revision"])))
+                if url.path == "/api/chat/stream":
+                    return self._sse(body)
                 if url.path == "/api/chat":
                     return self._json(
                         api.chat(
@@ -520,6 +558,26 @@ def make_handler(api: Api, static_dir: Path):
                     target.write_bytes(data)
                     staged.append(target)
                 return api.ingest(staged)
+
+        def _sse(self, body: dict) -> None:
+            """Server-sent events, so the answer appears as it is written."""
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            try:
+                for kind, payload in api.chat_stream(
+                    int(body["revision"]), body["question"], body.get("history", [])
+                ):
+                    data = json.dumps(
+                        {"text": payload} if kind == "delta" else payload
+                    )
+                    self.wfile.write(f"event: {kind}\ndata: {data}\n\n".encode())
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # the reader navigated away; nothing to clean up
+            self.close_connection = True
 
         def _static(self, path: str) -> None:
             if not static_dir.exists():

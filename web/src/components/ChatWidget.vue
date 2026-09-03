@@ -40,7 +40,8 @@ async function send() {
   if (!question || pending.value) return
   draft.value = ''
   scrollDown()
-  await actions.askGraph(question)
+  const ok = await actions.askGraph(question)
+  if (!ok && store.chat.retry) draft.value = store.chat.retry // never lose it
   scrollDown()
 }
 
@@ -99,7 +100,10 @@ watch(messages, scrollDown, { deep: true })
           class="msg"
           :class="`msg--${m.role}`"
         >
-          <p class="msg__text">{{ m.content }}</p>
+          <p class="msg__text">
+            {{ m.content
+            }}<span v-if="pending && i === messages.length - 1" class="msg__caret" />
+          </p>
 
           <p v-if="m.caveat" class="msg__caveat">{{ m.caveat }}</p>
 
@@ -114,7 +118,7 @@ watch(messages, scrollDown, { deep: true })
           </details>
         </article>
 
-        <p v-if="pending" class="chat__pending">
+        <p v-if="pending && !messages.at(-1)?.content" class="chat__pending">
           <span class="chat__spin" aria-hidden="true" />
           reading v{{ store.current }}…
         </p>
@@ -339,6 +343,20 @@ watch(messages, scrollDown, { deep: true })
 .msg__text {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.msg__caret {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  margin-left: 2px;
+  background: var(--cyan);
+  vertical-align: text-bottom;
+  animation: blink 1s steps(2) infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
 }
 
 .msg__caveat {

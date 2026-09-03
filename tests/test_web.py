@@ -7,6 +7,7 @@ its basis, a claim without its citation, a gating edge from an image.
 
 import json
 import shutil
+import time
 
 import pytest
 
@@ -344,3 +345,87 @@ def test_the_port_can_be_chosen_on_the_command_line():
     assert parse_port(["--port=9100"]) == 9100
     with pytest.raises(ValueError):
         parse_port(["--port", "not-a-number"])
+
+
+# --- streaming chat -------------------------------------------------------
+
+
+def test_chat_streams_deltas_then_a_final_payload(fresh_data):
+    """Time-to-first-token is the thing that makes it feel fast."""
+    from field_signal.web import Api
+
+    api = Api(data_dir=fresh_data)
+    events = list(
+        api.chat_stream(
+            1,
+            "Was it authorised?",
+            [],
+            answerer=_scripted("No [CL-S00-01]."),
+        )
+    )
+    kinds = [e[0] for e in events]
+    assert kinds[0] == "delta"
+    assert kinds[-1] == "done"
+    assert "".join(e[1] for e in events if e[0] == "delta") == "No [CL-S00-01]."
+    final = events[-1][1]
+    assert final["revision"] == 1
+    assert [c["claim"] for c in final["citations"]] == ["CL-S00-01"]
+
+
+def test_deltas_arrive_before_the_answer_is_finished(fresh_data):
+    """Otherwise it is not streaming, only buffering — no first-token win."""
+    import threading
+
+    from field_signal.web import Api
+
+    api = Api(data_dir=fresh_data)
+    release = threading.Event()
+
+    def slow(ledgers, revision, question, history, *, on_delta=None):
+        on_delta("first ")
+        assert release.wait(10), "test never released the answerer"
+        on_delta("second")
+        return {"revision": revision, "answer": "first second", "citations": [],
+                "unknown_citations": [], "caveat": None}
+
+    stream = api.chat_stream(1, "q", [], answerer=slow)
+    started = time.monotonic()
+    kind, text = next(stream)  # must not wait for the whole answer
+    waited = time.monotonic() - started
+
+    assert (kind, text) == ("delta", "first ")
+    assert waited < 2, f"first delta took {waited:.1f}s — buffered, not streamed"
+    release.set()
+    assert list(stream)[-1][0] == "done"
+
+
+def test_a_failure_mid_stream_arrives_as_an_error_event(fresh_data):
+    from field_signal.web import Api
+
+    api = Api(data_dir=fresh_data)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("the model is unavailable")
+
+    events = list(api.chat_stream(1, "q", [], answerer=boom))
+    assert events[-1][0] == "error"
+    assert "unavailable" in events[-1][1]["error"]
+
+
+def _scripted(text):
+    def answerer(ledgers, revision, question, history, *, on_delta=None):
+        from field_signal.chat import resolve_citations
+
+        for i in range(0, len(text), 4):
+            if on_delta:
+                on_delta(text[i : i + 4])
+        citations, unknown = resolve_citations(text, ledgers[revision])
+        return {
+            "revision": revision,
+            "answer": text,
+            "citations": citations,
+            "unknown_citations": unknown,
+            "caveat": None,
+        }
+
+    return answerer

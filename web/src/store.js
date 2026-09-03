@@ -21,6 +21,7 @@ const state = reactive({
   verify: null,
   moves: null,
   chat: {
+    retry: null,
     threads: {},
     pending: {},
     errors: {},
@@ -189,36 +190,72 @@ export const actions = {
     }
   },
 
+  /* Streamed, so the first words appear in about a second rather than after
+     the whole answer. The reply is appended empty and filled as it arrives. */
   async askGraph(question) {
     const content = String(question ?? '').trim()
     const revision = state.current
     const key = String(revision)
     if (!content || state.chat.pending[key]) return false
+
     const thread = chatThread(revision)
-    const history = thread.slice(-12).map((message) => ({
-      role: message.role,
-      content: message.content,
-    }))
+    const history = thread.slice(-12).map((m) => ({ role: m.role, content: m.content }))
     thread.push({ role: 'user', content, revision })
+    const reply = { role: 'assistant', content: '', revision, citations: [], caveat: null }
+    thread.push(reply)
     state.chat.pending[key] = true
     state.chat.errors[key] = null
+
     try {
-      const result = await call('/api/chat', {
+      // Typical answers start in under two seconds, but the provider
+      // occasionally cold-starts and stalls for over a minute. Give up rather
+      // than spin forever with nothing on screen.
+      const abort = new AbortController()
+      const stall = setTimeout(() => abort.abort(), 120_000)
+      const res = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ revision, question: content, history }),
-      })
-      thread.push({
-        role: 'assistant',
-        content: result.answer,
-        revision: result.revision,
-        citations: result.citations ?? [],
-        conditions: result.conditions ?? [],
-        caveat: result.caveat ?? null,
-      })
+        signal: abort.signal,
+      }).finally(() => clearTimeout(stall))
+      if (!res.ok || !res.body) throw new Error(`the server refused: ${res.status}`)
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const frames = buffer.split('\n\n')
+        buffer = frames.pop() ?? ''
+        for (const frame of frames) {
+          const event = /^event: (.+)$/m.exec(frame)?.[1]
+          const raw = /^data: (.*)$/m.exec(frame)?.[1]
+          if (!event || raw === undefined) continue
+          const payload = JSON.parse(raw)
+          if (event === 'delta') reply.content += payload.text
+          else if (event === 'done') {
+            reply.content = payload.answer || reply.content
+            reply.citations = payload.citations ?? []
+            reply.caveat = payload.caveat ?? null
+          } else if (event === 'error') throw new Error(payload.error)
+        }
+      }
+      if (!reply.content) throw new Error('the model returned nothing')
       return true
     } catch (e) {
-      state.chat.errors[key] = e.message
+      // "Failed to fetch" is what a browser says when it could not reach the
+      // server at all. Saying that plainly beats showing the raw TypeError.
+      const offline = e instanceof TypeError || /failed to fetch/i.test(e.message)
+      const stalled = e.name === 'AbortError'
+      state.chat.errors[key] = stalled
+        ? 'The model did not answer within two minutes. Your question is kept — try again.'
+        : offline
+          ? 'Cannot reach the Field Signal server. Is it still running? Your question is kept below.'
+          : e.message
+      thread.splice(thread.indexOf(reply), 1) // drop the empty reply, keep the question
+      state.chat.retry = content
       return false
     } finally {
       state.chat.pending[key] = false

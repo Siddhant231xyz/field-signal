@@ -158,6 +158,31 @@ Uploads in, a new revision out. It reads no documents itself.
   it. Also carries `rebuttals` (refuted claim → refuting claims) and
   `absent_bases` (absent source → claims leaning on it).
 
+### `field_signal/chat.py`
+
+One model call per question, no retrieval layer. The whole evidence base for a
+revision is ~8k tokens, so everything is handed to the model at once; the
+previous design searched with tools and cost up to twelve sequential requests.
+
+- `revision_context(ledgers, revision)` — the entire revision as one string:
+  derived conclusions (authoritative), every claim with its verbatim support
+  and locator, the authority matrix, and what moved from the previous revision.
+  Depends only on the revision, so it is a stable prompt-cache prefix and goes
+  first in the request. Revisions are immutable, so it is always valid.
+- `resolve_citations(text, ledger)` — claim ids the model wrote, **resolved
+  against the ledger**. An id that is not in the revision comes back as
+  unknown and is reported as a caveat rather than rendered as evidence. The
+  model cannot fabricate a citation past this point.
+- `answer_question(..., on_delta=None)` — one call. Pass `on_delta` to stream.
+  Model and effort are pinned (`gpt-5.5`, `low`): the deductions are already
+  computed by `graph.py`, so this only reads and cites them.
+
+**Measured** (5 identical questions, real API): median 1.6s to first token,
+2.7s complete. One run in five cold-started and took 81s — provider variance,
+not architecture, which is why the client gives up after two minutes rather
+than spinning. Prompt-cache warming was built, measured, and **removed**: the
+warm call is as slow as the question it was meant to speed up.
+
 ### `field_signal/diff.py`
 
 `diff(a, b) -> tuple[Movement, ...]`, where `Movement(kind, id, before, after,
